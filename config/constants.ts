@@ -1,0 +1,13 @@
+export const DARWIN_PROTOCOL_SCHEMA = "https://darwinprotocol.io/genome/v1";
+export const DEFAULT_MUTATION_RATE = 0.3;
+export const DEFAULT_MEMORY_WINDOW = 5;
+export const DEFAULT_RISK_THRESHOLD = 0.65;
+export const DEFAULT_ROUNDS_PER_GENERATION = 5;
+export const DEFAULT_POPULATION_SIZE = 5;
+export const DEFAULT_SURVIVORS_PER_GENERATION = 2;
+export const DEFAULT_DEATHS_PER_GENERATION = 1;
+export const DARWIN_TASK_TOPIC = "darwin/task";
+export const DARWIN_FITNESS_TOPIC = "darwin/fitness";
+export const DATA_DIR = "data";
+export const CACHE_DIR = "data/cache";
+export const LOG_DIR = "data/logs";
