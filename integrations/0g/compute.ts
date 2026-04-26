@@ -1,17 +1,175 @@
-import type { AgentContext, AgentAction } from "../../core/types/agent";
+import { ethers } from "ethers";
+import { createZGComputeNetworkBroker } from "@0glabs/0g-serving-broker";
+import type { AgentAction, AgentContext } from "../../core/types/agent";
+import { env } from "../../config/env";
+
+interface OpenAIChatCompletionResponse {
+  id?: string;
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+}
+
+const FALLBACK_ACTION: AgentAction = {
+  type: "observe",
+  direction: "flat",
+  confidence: 0,
+  rationale: "Inference failed, defaulting to observation."
+};
+
+const stripCodeFences = (content: string): string =>
+  content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
+const clampConfidence = (value: unknown): number => {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(1, numeric));
+};
+
+const normalizeAction = (payload: unknown): AgentAction => {
+  if (!payload || typeof payload !== "object") {
+    return FALLBACK_ACTION;
+  }
+
+  const candidate = payload as Partial<AgentAction>;
+  const type = candidate.type === "swap" || candidate.type === "hold" || candidate.type === "observe"
+    ? candidate.type
+    : FALLBACK_ACTION.type;
+  const direction =
+    candidate.direction === "long" || candidate.direction === "short" || candidate.direction === "flat"
+      ? candidate.direction
+      : FALLBACK_ACTION.direction;
+
+  return {
+    type,
+    direction,
+    confidence: clampConfidence(candidate.confidence),
+    rationale:
+      typeof candidate.rationale === "string" && candidate.rationale.trim().length > 0
+        ? candidate.rationale.trim()
+        : FALLBACK_ACTION.rationale,
+    ...(typeof candidate.sizeBps === "number" ? { sizeBps: candidate.sizeBps } : {})
+  };
+};
+
+const parseActionFromContent = (content: string): AgentAction => {
+  try {
+    return normalizeAction(JSON.parse(stripCodeFences(content)));
+  } catch (error) {
+    throw new Error("0G compute returned non-JSON content that could not be parsed into an action.", {
+      cause: error
+    });
+  }
+};
+
+const buildPrompt = (context: AgentContext): string =>
+  [
+    "Return ONLY valid JSON matching this schema:",
+    '{"type":"swap|hold|observe","direction":"long|short|flat","confidence":0.0,"rationale":"string","sizeBps":0}',
+    "Decide using the task context, market signals, recent memory, and risk threshold below.",
+    `Genome ID: ${context.genome.genome_id}`,
+    `Risk threshold: ${context.genome.risk_threshold}`,
+    `Task: ${JSON.stringify(context.task)}`,
+    `Signals: ${JSON.stringify(context.signals)}`,
+    `Memory: ${JSON.stringify(context.memory)}`
+  ].join("\n");
 
 export class ZeroGComputeAdapter {
-  public async reason(context: AgentContext): Promise<AgentAction> {
-    const confidence = Math.min(
-      1,
-      (context.signals.priceMomentum + context.signals.volumeSignal + context.signals.liquidityDepth) / 3
-    );
+  private brokerPromise?: ReturnType<typeof createZGComputeNetworkBroker>;
+  private providerAddressPromise?: Promise<string>;
 
-    return {
-      type: confidence >= context.genome.risk_threshold ? "swap" : "observe",
-      direction: confidence >= 0.55 ? "long" : "flat",
-      confidence,
-      rationale: `Generated placeholder action for ${context.genome.genome_id}.`
-    };
+  private async getBroker() {
+    if (!this.brokerPromise) {
+      if (!env.privateKey) {
+        throw new Error("Missing PRIVATE_KEY. 0G Compute inference requires a funded wallet private key.");
+      }
+
+      const provider = new ethers.JsonRpcProvider(env.RPC_URL);
+      const wallet = new ethers.Wallet(env.privateKey, provider);
+      this.brokerPromise = createZGComputeNetworkBroker(wallet);
+    }
+
+    return this.brokerPromise;
+  }
+
+  private async getProviderAddress(): Promise<string> {
+    if (!this.providerAddressPromise) {
+      this.providerAddressPromise = (async () => {
+        if (env.zeroGComputeProviderAddress) {
+          return env.zeroGComputeProviderAddress;
+        }
+
+        const broker = await this.getBroker();
+        const services = await broker.inference.listService();
+        const chatbotService = services.find((service) =>
+          String(service.serviceType).toLowerCase().includes("chat")
+        );
+
+        if (!chatbotService) {
+          throw new Error("No chatbot service provider found from 0G Compute listService().");
+        }
+
+        return String(chatbotService.provider);
+      })();
+    }
+
+    return this.providerAddressPromise;
+  }
+
+  public async reason(context: AgentContext): Promise<AgentAction> {
+    const broker = await this.getBroker();
+    const providerAddress = await this.getProviderAddress();
+    const { endpoint, model } = await broker.inference.getServiceMetadata(providerAddress);
+    const prompt = buildPrompt(context);
+    const headers = await broker.inference.getRequestHeaders(providerAddress, prompt);
+
+    const response = await fetch(`${endpoint}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...headers
+      },
+      body: JSON.stringify({
+        model: env.zeroGComputeModel || model,
+        messages: [
+          {
+            role: "system",
+            content: context.genome.reasoning_strategy
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `0G Compute request failed with status ${response.status}: ${errorBody || response.statusText}`
+      );
+    }
+
+    const data = (await response.json()) as OpenAIChatCompletionResponse;
+    const content = data.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      throw new Error("0G Compute response did not include chat completion content.");
+    }
+
+    const chatId =
+      response.headers.get("ZG-Res-Key") ||
+      response.headers.get("zg-res-key") ||
+      data.id;
+
+    await broker.inference.processResponse(providerAddress, content, chatId ?? undefined);
+
+    return parseActionFromContent(content);
   }
 }
