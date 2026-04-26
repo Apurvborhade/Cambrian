@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { createZGComputeNetworkBroker } from "@0glabs/0g-serving-broker";
 import type { AgentAction, AgentContext } from "../../core/types/agent";
 import { env } from "../../config/env";
+import { ZeroGComputeAccountManager } from "./account";
 
 interface OpenAIChatCompletionResponse {
   id?: string;
@@ -82,6 +83,7 @@ const buildPrompt = (context: AgentContext): string =>
 export class ZeroGComputeAdapter {
   private brokerPromise?: ReturnType<typeof createZGComputeNetworkBroker>;
   private providerAddressPromise?: Promise<string>;
+  private readonly accountManager = new ZeroGComputeAccountManager();
 
   private async getBroker() {
     if (!this.brokerPromise) {
@@ -123,12 +125,15 @@ export class ZeroGComputeAdapter {
 
   public async reason(context: AgentContext): Promise<AgentAction> {
     const broker = await this.getBroker();
-    //  Discover services
-    await broker.ledger.depositFund(3);
-    
-    const services = await broker.inference.listService()
-
     const providerAddress = await this.getProviderAddress();
+
+    console.log("Account manager:", this.accountManager);
+    await this.accountManager.ensureInferenceAccountReady(broker, providerAddress);
+    const services = await broker.inference.listService();
+
+    if (services.length === 0) {
+      throw new Error("0G Compute returned no services for the current broker/network configuration.");
+    }
 
     const { endpoint, model } = await broker.inference.getServiceMetadata(providerAddress);
     const prompt = buildPrompt(context);
