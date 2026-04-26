@@ -56,48 +56,65 @@ const createTask = (): AgentTask => ({
 
 export const runAgentLoop = async (genomeId: string) => {
   console.log("Ensuring Genome")
-  const genome = await ensureGenome(genomeId);
+  // const genome = await ensureGenome(genomeId);
   console.log("Create Task")
   const task = createTask();
   console.log("Task Created")
 
-  const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
+  // const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
 
-  console.log("Uniswap", signalAdapter)
+
 
   const compute = new ZeroGComputeAdapter();
-  console.log("Compute ", compute)
-  const keeper = new KeeperHubClient();
-  const memory = await loadAgentMemory(storage, genome);
-  const signals = await signalAdapter.getSignals(task.context.poolAddress);
-
-  const action = finalizeAction(
-    await runReasoning(compute, { genome, task, signals, memory }),
-    genome
-  );
-
-  const receipt = action.type === "swap" ? await keeper.execute(action) : undefined;
-
-  const memoryRecord =
-    action.type === "swap"
-      ? {
-        round: task.round,
-        summary: action.rationale,
-        outcome: "flat" as const,
-        action
-      }
-      : {
-        round: task.round,
-        summary: action.rationale,
-        action
-      };
-
-  await persistAgentMemory(storage, genome, memoryRecord);
-
-  return {
-    genomeId,
+  // console.log("Compute ", compute)
+  compute.reason({
+    genome: {
+      genome_id: genomeId,
+      risk_threshold: 0.5,
+      storage_key: `genome-${genomeId}`
+    },
     task,
-    action,
-    receipt
-  };
+    signals: {
+      priceMomentum: 0,
+      volumeSignal: 0,
+      liquidityDepth: 0,
+      volatilityIndex: 0,
+      blockTiming: 0
+    },
+    memory: []
+  })
+
+  const keeper = new KeeperHubClient();
+  // const memory = await loadAgentMemory(storage, genome);
+  // const signals = await signalAdapter.getSignals(task.context.poolAddress);
+
+  // const action = finalizeAction(
+  //   await runReasoning(compute, { genome, task, signals, memory }),
+  //   genome
+  // );
+
+  // const receipt = action.type === "swap" ? await keeper.execute(action) : undefined;
+
+  // const memoryRecord =
+  //   action.type === "swap"
+  //     ? {
+  //       round: task.round,
+  //       summary: action.rationale,
+  //       outcome: "flat" as const,
+  //       action
+  //     }
+  //     : {
+  //       round: task.round,
+  //       summary: action.rationale,
+  //       action
+  //     };
+
+  // await persistAgentMemory(storage, genome, memoryRecord);
+
+  // return {
+  //   genomeId,
+  //   task,
+  //   action,
+  //   receipt
+  // };
 };

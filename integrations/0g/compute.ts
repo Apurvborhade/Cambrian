@@ -123,7 +123,13 @@ export class ZeroGComputeAdapter {
 
   public async reason(context: AgentContext): Promise<AgentAction> {
     const broker = await this.getBroker();
+    //  Discover services
+    await broker.ledger.depositFund(3);
+    
+    const services = await broker.inference.listService()
+
     const providerAddress = await this.getProviderAddress();
+
     const { endpoint, model } = await broker.inference.getServiceMetadata(providerAddress);
     const prompt = buildPrompt(context);
     const headers = await broker.inference.getRequestHeaders(providerAddress, prompt);
