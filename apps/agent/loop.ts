@@ -16,6 +16,7 @@ const ensureGenome = async (genomeId: string) => {
 
   try {
     genome = await storage.getGenome(genomeId);
+    console.log("Retrieved genome:", genome,genomeId);
   } catch (error) {
     console.log(error)
     if (error instanceof Error && error.message.toLowerCase().includes("timeout")) {
@@ -33,6 +34,7 @@ const ensureGenome = async (genomeId: string) => {
       await storage.setGenome(seed);
     }
     genome = await storage.getGenome(genomeId);
+    console.log("Seeded genomes and retrieved genome:", genome, genomeId);
   }
 
   if (!genome) {
@@ -56,7 +58,8 @@ const createTask = (): AgentTask => ({
 
 export const runAgentLoop = async (genomeId: string) => {
   console.log("Ensuring Genome")
-  // const genome = await ensureGenome(genomeId);
+  const genome = await ensureGenome(genomeId);
+  console.log("Genome", genome)
   console.log("Create Task")
   const task = createTask();
   console.log("Task Created")
@@ -65,24 +68,24 @@ export const runAgentLoop = async (genomeId: string) => {
 
 
 
-  const compute = new ZeroGComputeAdapter();
-  // console.log("Compute ", compute)
-  compute.reason({
-    genome: {
-      genome_id: genomeId,
-      risk_threshold: 0.5,
-      storage_key: `genome-${genomeId}`
-    },
-    task,
-    signals: {
-      priceMomentum: 0,
-      volumeSignal: 0,
-      liquidityDepth: 0,
-      volatilityIndex: 0,
-      blockTiming: 0
-    },
-    memory: []
-  })
+  // const compute = new ZeroGComputeAdapter();
+  // // console.log("Compute ", compute)
+  // compute.reason({
+  //   genome: {
+  //     genome_id: genomeId,
+  //     risk_threshold: 0.5,
+  //     storage_key: `genome-${genomeId}`
+  //   },
+  //   task,
+  //   signals: {
+  //     priceMomentum: 0,
+  //     volumeSignal: 0,
+  //     liquidityDepth: 0,
+  //     volatilityIndex: 0,
+  //     blockTiming: 0
+  //   },
+  //   memory: []
+  // })
 
   const keeper = new KeeperHubClient();
   // const memory = await loadAgentMemory(storage, genome);

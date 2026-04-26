@@ -5,7 +5,7 @@ dotenv.config();
 export const env = {
   RPC_URL: process.env.RPC_URL || "https://dark-withered-panorama.0g-galileo.quiknode.pro/",
   INDEXER_RPC: process.env.INDEXER_RPC || "https://indexer-storage-testnet-turbo.0g.ai",
-  KV_RPC_URL: process.env.KV_RPC_URL || "https://dark-withered-panorama.0g-galileo.quiknode.pro/a097ba0b9dd48b2029d0f2a72a9b1fed3d1e1bf7/",
+  KV_RPC_URL: process.env.KV_RPC_URL || "http://127.0.0.1:6789",
   KV_GENOME_STREAM_ID: process.env.KV_GENOME_STREAM_ID || "",
   privateKey: process.env.PRIVATE_KEY,
   zeroGComputeLedgerAddress: process.env.ZG_COMPUTE_LEDGER_ADDRESS || "",

@@ -12,14 +12,21 @@ let signer: ethers.Wallet | null = null;
 
 
 const getGenomeStreamId = (): string => {
-  const streamId = ethers.id(env.KV_GENOME_STREAM_ID);
+  const configured = env.KV_GENOME_STREAM_ID?.trim();
 
-  if (!streamId) {
-    throw new Error("Missing KV_GENOME_STREAM_ID. Set it to your bytes32 stream hash (0x + 64 hex chars).");
+  if (!configured) {
+    throw new Error("Missing KV_GENOME_STREAM_ID. Set it to a bytes32 stream hash (0x + 64 hex chars) or a plain stream label.");
   }
 
+  // If a valid bytes32 stream ID is provided, use it directly.
+  if (ethers.isHexString(configured, 32)) {
+    return configured;
+  }
+
+  const streamId = ethers.id(configured);
+
   if (!ethers.isHexString(streamId, 32)) {
-    throw new Error("Invalid KV_GENOME_STREAM_ID. Expected 0x + 64 hex chars (bytes32 stream hash).");
+    throw new Error("Invalid KV_GENOME_STREAM_ID. Expected a bytes32 stream hash (0x + 64 hex chars) or a non-empty plain label.");
   }
 
   return streamId;
@@ -58,6 +65,9 @@ const decodeGenomeValue = (dataBase64: string): AgentGenome => {
   const json = Buffer.from(dataBase64, "base64").toString("utf-8");
   return JSON.parse(json) as AgentGenome;
 };
+
+const toGenomeStorageKey = (genomeId: string): string =>
+  genomeId.startsWith("genomes:") ? genomeId : `genomes:${genomeId}`;
 
 const getSigner = (): ethers.Wallet => {
   if (signer) {
@@ -114,10 +124,12 @@ export class ZeroGStorageAdapter {
   private async downloadFromKV(streamId: string, key: string) {
     const keyBytes = Uint8Array.from(Buffer.from(key, "utf-8"));
     const keyBase64 = ethers.encodeBase64(keyBytes);
-    const kvClient = new KvClient("http://3.101.147.150:6789");
-
+    const kvClient = new KvClient(env.KV_RPC_URL);
+   
     try {
-      return await kvClient.getValue(streamId, keyBase64 as unknown as Uint8Array);
+      const res = await kvClient.getValue(streamId, keyBase64 as unknown as Uint8Array);
+      console.log(`Retrieved value for genome ${key}:`, res);
+      return res
     } catch (error) {
       if (error instanceof Error && error.message.toLowerCase().includes("timeout")) {
         throw new Error(
@@ -137,8 +149,8 @@ export class ZeroGStorageAdapter {
 
   public async getGenome(genomeId: string): Promise<AgentGenome | null> {
     const streamId = getGenomeStreamId();
-    const value = await this.downloadFromKV(streamId, genomeId);
-
+    const value = await this.downloadFromKV(streamId, toGenomeStorageKey(genomeId));
+    console.log(`Retrieved value for genome ${genomeId}:`, value);
     if (!value?.data) {
       return null;
     }
