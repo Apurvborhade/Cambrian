@@ -1,3 +1,4 @@
+import { Value } from "@0gfoundation/0g-ts-sdk";
 import type { AgentGenome } from "./genome";
 import type { AgentTask } from "./task";
 
@@ -25,7 +26,7 @@ export interface AgentMemoryRecord {
 }
 
 export interface AgentContext {
-  genome: AgentGenome;
+  genome: AgentGenome | any;
   task: AgentTask;
   signals: AgentSignalSet;
   memory: AgentMemoryRecord[];

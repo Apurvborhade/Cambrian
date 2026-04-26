@@ -12,7 +12,21 @@ import { finalizeAction } from "./action";
 const storage = new ZeroGStorageAdapter();
 
 const ensureGenome = async (genomeId: string) => {
-  let genome = await storage.getGenome(genomeId);
+  let genome;
+
+  try {
+    genome = await storage.getGenome(genomeId);
+  } catch (error) {
+    console.log(error)
+    if (error instanceof Error && error.message.toLowerCase().includes("timeout")) {
+      throw new Error(
+        "Timed out while reading genome from 0G storage. Check RPC/INDEXER/KV endpoint reachability and try again.",
+        { cause: error }
+      );
+    }
+
+    throw error;
+  }
 
   if (!genome) {
     for (const seed of createSeedGenomes()) {
@@ -41,13 +55,22 @@ const createTask = (): AgentTask => ({
 });
 
 export const runAgentLoop = async (genomeId: string) => {
+  console.log("Ensuring Genome")
   const genome = await ensureGenome(genomeId);
+  console.log("Create Task")
   const task = createTask();
+  console.log("Task Created")
+
   const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
+
+  console.log("Uniswap", signalAdapter)
+
   const compute = new ZeroGComputeAdapter();
+  console.log("Compute ", compute)
   const keeper = new KeeperHubClient();
   const memory = await loadAgentMemory(storage, genome);
   const signals = await signalAdapter.getSignals(task.context.poolAddress);
+
   const action = finalizeAction(
     await runReasoning(compute, { genome, task, signals, memory }),
     genome
@@ -58,16 +81,16 @@ export const runAgentLoop = async (genomeId: string) => {
   const memoryRecord =
     action.type === "swap"
       ? {
-          round: task.round,
-          summary: action.rationale,
-          outcome: "flat" as const,
-          action
-        }
+        round: task.round,
+        summary: action.rationale,
+        outcome: "flat" as const,
+        action
+      }
       : {
-          round: task.round,
-          summary: action.rationale,
-          action
-        };
+        round: task.round,
+        summary: action.rationale,
+        action
+      };
 
   await persistAgentMemory(storage, genome, memoryRecord);
 

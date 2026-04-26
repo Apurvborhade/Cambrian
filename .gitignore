@@ -59,3 +59,5 @@ junit.xml
 # Misc
 *.pid
 *.seed
+
+package-lock.json
