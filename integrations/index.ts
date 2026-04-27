@@ -7,3 +7,4 @@ export * from "./keeperhub/client";
 export * from "./keeperhub/audit";
 export * from "./uniswap/market";
 export * from "./uniswap/adapter";
+export * from "./onchain/inft";

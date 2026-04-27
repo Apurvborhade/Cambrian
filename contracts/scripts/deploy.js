@@ -17,7 +17,6 @@ async function main() {
     const inft = await INFT.deploy(
         "AI Agent NFTs",
         "AINFT",
-        await oracle.getAddress()
     );
     await inft.waitForDeployment();
     

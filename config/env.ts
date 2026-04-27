@@ -12,6 +12,8 @@ export const env = {
   zeroGComputeInferenceAddress: process.env.ZG_COMPUTE_INFERENCE_ADDRESS || "",
   zeroGComputeFineTuningAddress: process.env.ZG_COMPUTE_FINE_TUNING_ADDRESS || "",
   zeroGComputeProviderAddress: process.env.ZG_COMPUTE_PROVIDER_ADDRESS || "",
+  inftContractAddress: process.env.INFT_CONTRACT_ADDRESS || "",
+  inftMintToAddress: process.env.INFT_MINT_TO_ADDRESS || "",
   zeroGComputeProviderFundOg: parseFloat(process.env.ZG_COMPUTE_PROVIDER_FUND_OG ?? "1"),
   zeroGComputeAutoDeposit: process.env.ZG_COMPUTE_AUTO_DEPOSIT === "true",
   zeroGComputeAutoTransfer: process.env.ZG_COMPUTE_AUTO_TRANSFER === "true",
