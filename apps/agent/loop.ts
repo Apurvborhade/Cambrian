@@ -69,51 +69,39 @@ export const runAgentLoop = async (genomeId: string) => {
 
 
   const compute = new ZeroGComputeAdapter();
-  // // console.log("Compute ", compute)
-  compute.reason(
-    {
-      genome,
-      task,
-      signals: await signalAdapter.getSignals(task.context.poolAddress),
-      memory: await loadAgentMemory(storage, genome)
-    }
-  ).then((action) => {
-    console.log("Reasoning completed. Action:", action);
-  }).catch((error) => {
-    console.error("Error during reasoning:", error);
-  });
+
 
   const keeper = new KeeperHubClient();
-  // const memory = await loadAgentMemory(storage, genome);
-  // const signals = await signalAdapter.getSignals(task.context.poolAddress);
+  const memory = await loadAgentMemory(storage, genome);
+  const signals = await signalAdapter.getSignals(task.context.poolAddress);
 
-  // const action = finalizeAction(
-  //   await runReasoning(compute, { genome, task, signals, memory }),
-  //   genome
-  // );
+  const action = finalizeAction(
+    await runReasoning(compute, { genome, task, signals, memory }),
+    genome
+  );
 
-  // const receipt = action.type === "swap" ? await keeper.execute(action) : undefined;
+  const receipt = action.type === "swap" ? await keeper.execute(action) : undefined;
 
-  // const memoryRecord =
-  //   action.type === "swap"
-  //     ? {
-  //       round: task.round,
-  //       summary: action.rationale,
-  //       outcome: "flat" as const,
-  //       action
-  //     }
-  //     : {
-  //       round: task.round,
-  //       summary: action.rationale,
-  //       action
-  //     };
+  const memoryRecord =
+    action.type === "swap"
+      ? {
+        round: task.round,
+        summary: action.rationale,
+        outcome: "flat" as const,
+        action
+      }
+      : {
+        round: task.round,
+        summary: action.rationale,
+        action
+      };
 
-  // await persistAgentMemory(storage, genome, memoryRecord);
+  await persistAgentMemory(storage, genome, memoryRecord);
 
-  // return {
-  //   genomeId,
-  //   task,
-  //   action,
-  //   receipt
-  // };
+  return {
+    genomeId,
+    task,
+    action,
+    receipt
+  };
 };
