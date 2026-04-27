@@ -12,6 +12,7 @@ import { Wallet, isHexString } from "ethers";
 import { loadAgentMemory, persistAgentMemory } from "./memory";
 import { runReasoning } from "./reasoning";
 import { finalizeAction } from "./action";
+import { calculateFitness } from "../../core/evolution/fitness";
 
 const storage = new ZeroGStorageAdapter();
 
@@ -145,6 +146,7 @@ export const runAgentLoop = async (genomeId: string) => {
   );
 
   const receipt = action.type === "swap" ? await keeper.execute(action) : undefined;
+  const fitness = calculateFitness(action, signals);
 
   const memoryRecord =
     action.type === "swap"
@@ -160,7 +162,7 @@ export const runAgentLoop = async (genomeId: string) => {
         action
       };
 
-  await persistAgentMemory(storage, genome, memoryRecord);
+  await persistAgentMemory(storage, genome, { ...memoryRecord, fitness });
 
   return {
     genomeId,

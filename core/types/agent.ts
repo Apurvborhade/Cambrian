@@ -23,6 +23,7 @@ export interface AgentMemoryRecord {
   summary: string;
   outcome?: "win" | "loss" | "flat";
   action?: AgentAction;
+  fitness:number;
 }
 
 export interface AgentContext {
