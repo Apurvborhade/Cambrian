@@ -13,6 +13,9 @@ export const genomeSchema: GenomeSchemaDescriptor = {
   version: "v1",
   requiredFields: [
     "genome_id",
+    "token_id",
+    "nft_contract",
+    "fitness",
     "generation",
     "parent_ids",
     "mutation_seed",

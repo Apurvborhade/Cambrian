@@ -66,6 +66,11 @@ const decodeGenomeValue = (dataBase64: string): AgentGenome => {
   return JSON.parse(json) as AgentGenome;
 };
 
+const decodeJsonValue = <T>(dataBase64: string): T => {
+  const json = Buffer.from(dataBase64, "base64").toString("utf-8");
+  return JSON.parse(json) as T;
+};
+
 const toGenomeStorageKey = (genomeId: string): string =>
   genomeId.startsWith("genomes:") ? genomeId : `genomes:${genomeId}`;
 
@@ -101,7 +106,7 @@ export class ZeroGStorageAdapter {
   private readonly genomes = new Map<string, AgentGenome>();
   private readonly memory = new Map<string, AgentMemoryRecord[]>();
 
-  private async uploadToKV(streamId: string, key: string, value: AgentGenome) {
+  private async uploadToKV(streamId: string, key: string, value: unknown) {
     const activeSigner = getSigner();
     const { nodes, flowContract } = await getFlowContractFromNode(activeSigner);
     const batcher = new Batcher(1, nodes, flowContract, env.RPC_URL);
@@ -167,5 +172,20 @@ export class ZeroGStorageAdapter {
   public async getRecentMemory(genomeId: string, window: number): Promise<AgentMemoryRecord[]> {
     const existing = this.memory.get(genomeId) ?? [];
     return existing.slice(-window);
+  }
+
+  public async setJson<T>(key: string, value: T): Promise<void> {
+    await this.uploadToKV(getGenomeStreamId(), key, value);
+  }
+
+  public async getJson<T>(key: string): Promise<T | null> {
+    const streamId = getGenomeStreamId();
+    const value = await this.downloadFromKV(streamId, key);
+
+    if (!value?.data) {
+      return null;
+    }
+
+    return decodeJsonValue<T>(value.data);
   }
 }

@@ -17,6 +17,9 @@ export interface SeedGenomeInput {
 const buildGenome = (input: SeedGenomeInput, index: number): AgentGenome => {
   const genome: AgentGenome = {
     genome_id: input.id,
+    token_id: "",
+    nft_contract: "",
+    fitness: 0,
     generation: 0,
     parent_ids: [],
     mutation_seed: `seed-${index + 1}`,

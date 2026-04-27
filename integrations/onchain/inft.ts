@@ -16,6 +16,8 @@ import { env } from "../../config/env";
 const INFT_ABI = [
   "function mint(address to,bytes32 _genomeId,uint256 parentA,uint256 parentB) external returns (uint256)",
   "function burn(uint256 tokenId) external",
+  "function owner() external view returns (address)",
+  "function ownerOf(uint256 tokenId) external view returns (address)",
   "function getGenomeId(uint256 tokenId) external view returns (bytes32)",
   "function getParents(uint256 tokenId) external view returns (uint256 parentA,uint256 parentB)",
   "function totalMinted() external view returns (uint256)",
@@ -32,10 +34,20 @@ interface INFTContract {
     parentB: BigNumberish
   ): Promise<ContractTransactionResponse>;
   burn(tokenId: BigNumberish): Promise<ContractTransactionResponse>;
+  owner(): Promise<string>;
+  ownerOf(tokenId: BigNumberish): Promise<string>;
   getGenomeId(tokenId: BigNumberish): Promise<string>;
   getParents(tokenId: BigNumberish): Promise<readonly [bigint, bigint]>;
   totalMinted(): Promise<bigint>;
   interface: Contract["interface"];
+}
+
+export interface BurnPermission {
+  allowed: boolean;
+  signer: string;
+  contractOwner: string;
+  tokenOwner?: string;
+  reason?: string;
 }
 
 export interface MintAgentRequest {
@@ -103,9 +115,11 @@ const toINFTContract = (address: string, runner: JsonRpcProvider | Wallet): INFT
 
 export class INFTOnchainAdapter {
   private readonly contract: INFTContract;
+  private readonly signer: Wallet;
 
   constructor(contractAddress: string, signer: Wallet) {
     assertAddress(contractAddress, "INFT contract address");
+    this.signer = signer;
     this.contract = toINFTContract(contractAddress, signer);
   }
 
@@ -162,6 +176,47 @@ export class INFTOnchainAdapter {
   public async burn(tokenId: BigNumberish): Promise<OnchainTxResult> {
     const tx = await this.contract.burn(tokenId);
     return toOnchainTxResult(await requireReceipt(tx));
+  }
+
+  public getSignerAddress(): string {
+    return this.signer.address;
+  }
+
+  public async getContractOwner(): Promise<string> {
+    return this.contract.owner();
+  }
+
+  public async checkBurnPermission(tokenId: BigNumberish): Promise<BurnPermission> {
+    const signer = this.getSignerAddress();
+    const contractOwner = await this.getContractOwner();
+
+    if (signer.toLowerCase() != contractOwner.toLowerCase()) {
+        console.log(typeof signer,typeof contractOwner)
+        console.log("Signer: ",signer," contractOwner: ",contractOwner)
+      return {
+        allowed: false,
+        signer,
+        contractOwner,
+        reason: "signer is not contract owner"
+      };
+    }
+
+    try {
+      const tokenOwner = await this.contract.ownerOf(tokenId);
+      return {
+        allowed: true,
+        signer,
+        contractOwner,
+        tokenOwner
+      };
+    } catch {
+      return {
+        allowed: false,
+        signer,
+        contractOwner,
+        reason: "ownerOf reverted (token missing/burned or wrong contract)"
+      };
+    }
   }
 
   public async getGenomeId(tokenId: BigNumberish): Promise<string> {

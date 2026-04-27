@@ -8,6 +8,9 @@ export interface ToolWeights {
 
 export interface AgentGenome {
   genome_id: string;
+  token_id: string;
+  nft_contract: string;
+  fitness: number;
   generation: number;
   parent_ids: string[];
   mutation_seed: string;

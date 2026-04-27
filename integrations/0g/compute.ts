@@ -13,6 +13,13 @@ interface OpenAIChatCompletionResponse {
   }>;
 }
 
+export interface ZeroGComputeInferenceRequest {
+  system: string;
+  user: string;
+  temperature?: number;
+  model?: string;
+}
+
 const FALLBACK_ACTION: AgentAction = {
   type: "observe",
   direction: "flat",
@@ -123,11 +130,10 @@ export class ZeroGComputeAdapter {
     return this.providerAddressPromise;
   }
 
-  public async reason(context: AgentContext): Promise<AgentAction> {
+  public async inferRaw(request: ZeroGComputeInferenceRequest): Promise<string> {
     const broker = await this.getBroker();
     const providerAddress = await this.getProviderAddress();
 
-    console.log("Account manager:", this.accountManager);
     await this.accountManager.ensureInferenceAccountReady(broker, providerAddress);
     const services = await broker.inference.listService();
 
@@ -136,7 +142,7 @@ export class ZeroGComputeAdapter {
     }
 
     const { endpoint, model } = await broker.inference.getServiceMetadata(providerAddress);
-    const prompt = buildPrompt(context);
+    const prompt = request.user;
     const headers = await broker.inference.getRequestHeaders(providerAddress, prompt);
 
     const response = await fetch(`${endpoint}/chat/completions`, {
@@ -146,20 +152,21 @@ export class ZeroGComputeAdapter {
         ...headers
       },
       body: JSON.stringify({
-        model: env.zeroGComputeModel || model,
+        model: request.model || env.zeroGComputeModel || model,
+        temperature: request.temperature ?? 0.7,
         messages: [
           {
             role: "system",
-            content: context.genome.reasoning_strategy
+            content: request.system
           },
           {
             role: "user",
-            content: prompt
+            content: request.user
           }
         ]
       })
     });
-  
+
     if (!response.ok) {
       const errorBody = await response.text();
       throw new Error(
@@ -169,8 +176,6 @@ export class ZeroGComputeAdapter {
 
     const data = (await response.json()) as OpenAIChatCompletionResponse;
     const content = data.choices?.[0]?.message?.content?.trim();
-
-    
 
     if (!content) {
       throw new Error("0G Compute response did not include chat completion content.");
@@ -183,16 +188,23 @@ export class ZeroGComputeAdapter {
 
     if (chatId) {
       try {
-        console.log("Processing the Response: ")
         await broker.inference.processResponse(providerAddress, content, chatId);
-        console.log("Processed the response with the broker's processResponse method.")
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        console.warn(`Failed to process response signature: ${message}. Continuing with parsed action.`);
+        console.warn(`Failed to process response signature: ${message}. Continuing with response content.`);
       }
-    } else {
-      console.warn("No chatId found in response headers or body. Skipping signature verification.");
     }
+
+    return content;
+  }
+
+  public async reason(context: AgentContext): Promise<AgentAction> {
+    const prompt = buildPrompt(context);
+    const content = await this.inferRaw({
+      system: context.genome.reasoning_strategy,
+      user: prompt,
+      temperature: 0.7
+    });
 
     return parseActionFromContent(content);
   }
