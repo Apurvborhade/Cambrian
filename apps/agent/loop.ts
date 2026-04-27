@@ -16,7 +16,7 @@ const ensureGenome = async (genomeId: string) => {
 
   try {
     genome = await storage.getGenome(genomeId);
-    console.log("Retrieved genome:", genome,genomeId);
+    console.log("Retrieved genome:", genome, genomeId);
   } catch (error) {
     console.log(error)
     if (error instanceof Error && error.message.toLowerCase().includes("timeout")) {
@@ -64,28 +64,24 @@ export const runAgentLoop = async (genomeId: string) => {
   const task = createTask();
   console.log("Task Created")
 
-  // const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
+  const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
 
 
 
-  // const compute = new ZeroGComputeAdapter();
+  const compute = new ZeroGComputeAdapter();
   // // console.log("Compute ", compute)
-  // compute.reason({
-  //   genome: {
-  //     genome_id: genomeId,
-  //     risk_threshold: 0.5,
-  //     storage_key: `genome-${genomeId}`
-  //   },
-  //   task,
-  //   signals: {
-  //     priceMomentum: 0,
-  //     volumeSignal: 0,
-  //     liquidityDepth: 0,
-  //     volatilityIndex: 0,
-  //     blockTiming: 0
-  //   },
-  //   memory: []
-  // })
+  compute.reason(
+    {
+      genome,
+      task,
+      signals: await signalAdapter.getSignals(task.context.poolAddress),
+      memory: await loadAgentMemory(storage, genome)
+    }
+  ).then((action) => {
+    console.log("Reasoning completed. Action:", action);
+  }).catch((error) => {
+    console.error("Error during reasoning:", error);
+  });
 
   const keeper = new KeeperHubClient();
   // const memory = await loadAgentMemory(storage, genome);

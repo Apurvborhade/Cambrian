@@ -19,13 +19,10 @@ const formatOptionalOg = (amount: bigint | null): string => (amount === null ? "
 
 const ogToWei = (amount: number): bigint => ethers.parseEther(amount.toString());
 
-const normalizeLedgerBalance = (ledger: { ledgerInfo: bigint[] }): NormalizedLedgerBalance => {
-  const totalBalance = ledger.ledgerInfo[0] ?? 0n;
-  const lockedBalance = ledger.ledgerInfo[1] ?? 0n;
-
+const normalizeLedgerBalance = (ledger: { totalBalance: bigint; availableBalance: bigint }): NormalizedLedgerBalance => {
   return {
-    totalBalance,
-    availableBalance: totalBalance - lockedBalance
+    totalBalance: ledger.totalBalance,
+    availableBalance: ledger.availableBalance
   };
 };
 

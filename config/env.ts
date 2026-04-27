@@ -3,11 +3,11 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const env = {
-  RPC_URL: process.env.RPC_URL || "https://dark-withered-panorama.0g-galileo.quiknode.pro/",
+  RPC_URL: process.env.RPC_URL || "https://evmrpc-testnet.0g.ai",
   INDEXER_RPC: process.env.INDEXER_RPC || "https://indexer-storage-testnet-turbo.0g.ai",
   KV_RPC_URL: process.env.KV_RPC_URL || "http://127.0.0.1:6789",
   KV_GENOME_STREAM_ID: process.env.KV_GENOME_STREAM_ID || "",
-  privateKey: process.env.PRIVATE_KEY,
+  privateKey: process.env.PRIVATE_KEY || "",
   zeroGComputeLedgerAddress: process.env.ZG_COMPUTE_LEDGER_ADDRESS || "",
   zeroGComputeInferenceAddress: process.env.ZG_COMPUTE_INFERENCE_ADDRESS || "",
   zeroGComputeFineTuningAddress: process.env.ZG_COMPUTE_FINE_TUNING_ADDRESS || "",

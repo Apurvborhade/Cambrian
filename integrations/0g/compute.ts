@@ -159,7 +159,7 @@ export class ZeroGComputeAdapter {
         ]
       })
     });
-
+  
     if (!response.ok) {
       const errorBody = await response.text();
       throw new Error(
@@ -170,6 +170,8 @@ export class ZeroGComputeAdapter {
     const data = (await response.json()) as OpenAIChatCompletionResponse;
     const content = data.choices?.[0]?.message?.content?.trim();
 
+    
+
     if (!content) {
       throw new Error("0G Compute response did not include chat completion content.");
     }
@@ -179,7 +181,18 @@ export class ZeroGComputeAdapter {
       response.headers.get("zg-res-key") ||
       data.id;
 
-    await broker.inference.processResponse(providerAddress, content, chatId ?? undefined);
+    if (chatId) {
+      try {
+        console.log("Processing the Response: ")
+        await broker.inference.processResponse(providerAddress, content, chatId);
+        console.log("Processed the response with the broker's processResponse method.")
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Failed to process response signature: ${message}. Continuing with parsed action.`);
+      }
+    } else {
+      console.warn("No chatId found in response headers or body. Skipping signature verification.");
+    }
 
     return parseActionFromContent(content);
   }
