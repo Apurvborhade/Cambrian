@@ -1,4 +1,4 @@
-import type { AgentTask } from "../../core/types/task";
+import { createAgentTask, type CreateAgentTaskOptions } from "../../core/types/task";
 import type { AgentGenome } from "../../core/types/genome";
 import { createSeedGenomes } from "../../core/genome/generator";
 import { ZeroGStorageAdapter } from "../../integrations/0g/storage";
@@ -15,6 +15,10 @@ import { finalizeAction } from "./action";
 import { calculateFitness } from "../../core/evolution/fitness";
 
 const storage = new ZeroGStorageAdapter();
+
+export interface RunAgentLoopOptions {
+  task?: CreateAgentTaskOptions;
+}
 
 const createOnchainAdapter = (): INFTOnchainAdapter | null => {
   try {
@@ -118,24 +122,23 @@ const ensureGenome = async (genomeId: string) => {
   return genome;
 };
 
-const createTask = (): AgentTask => ({
-  id: "local-task-1",
-  generation: 0,
-  round: 1,
-  topic: "darwin/task",
-  issuedAt: new Date().toISOString(),
+const createDefaultTask = (): CreateAgentTaskOptions => ({
   context: {
     poolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool",
     roundWindowBlocks: 20
   }
 });
 
-export const runAgentLoop = async (genomeId: string, providedGenome?: AgentGenome) => {
+export const runAgentLoop = async (
+  genomeId: string,
+  providedGenome?: AgentGenome,
+  options: RunAgentLoopOptions = {}
+) => {
   console.log("Ensuring Genome")
   const genome = providedGenome ?? await ensureGenome(genomeId);
   console.log("Genome", genome)
   console.log("Create Task")
-  const task = createTask();
+  const task = createAgentTask(options.task ?? createDefaultTask());
   console.log("Task Created")
 
   const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
