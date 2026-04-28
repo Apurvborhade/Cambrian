@@ -711,16 +711,39 @@ export const generateChildGenome = async (g1: AgentGenome, g2: AgentGenome): Pro
 export const evolveArena = async (arenaId: string, rankedGenomes: any[]): Promise<AgentGenome[]> => {
   const { state, genomes } = await getArenaGenomes(arenaId);
 
-  if (genomes.length < 3) {
-    throw new Error(`Arena ${arenaId} needs at least 3 genomes to evolve.`);
+  if (rankedGenomes.length <= 1) {
+    return rankedGenomes as AgentGenome[];
   }
 
+  // We shrink the population by burning multiple worst genomes each generation.
+  // Default is 2 (net -1 population because we still mint 1 child), and we stop once 1 remains.
+  const configuredBurnCount = Number.isInteger(env.arenaBurnsPerGeneration) ? env.arenaBurnsPerGeneration : 2;
+  const burnCount = Math.max(2, configuredBurnCount);
+
+  if (rankedGenomes.length === 2) {
+    const best = rankedGenomes[0];
+    const worst = rankedGenomes[1];
+    const onchain = getOnchainAdapter();
+
+    await burnGenome(arenaId, onchain, worst);
+
+    const nextState: ArenaStateRecord = {
+      ...state,
+      generation: state.generation + 1,
+      round: 0,
+      genomeIds: [best.genome_id],
+      updatedAt: new Date().toISOString()
+    };
+
+    await safeSetArenaState(nextState);
+    return [best];
+  }
 
   const best = rankedGenomes[0];
   const second = rankedGenomes[1];
-  const worst = rankedGenomes[rankedGenomes.length - 1];
+  const burnTargets = rankedGenomes.slice(-Math.min(burnCount, rankedGenomes.length - 2));
 
-  if (!best || !second || !worst) {
+  if (!best || !second || burnTargets.length === 0) {
     throw new Error(`Arena ${arenaId} selection failed because rankings are incomplete.`);
   }
 
@@ -738,7 +761,7 @@ export const evolveArena = async (arenaId: string, rankedGenomes: any[]): Promis
   });
 
   console.log(
-    `[arena:${arenaId}] selected best=${best.genome_id} (${best.fitness.toFixed(4)}), second=${second.genome_id} (${second.fitness.toFixed(4)}), worst=${worst.genome_id} (${worst.fitness.toFixed(4)})`
+    `[arena:${arenaId}] selected best=${best.genome_id} (${best.fitness.toFixed(4)}), second=${second.genome_id} (${second.fitness.toFixed(4)}), burns=${burnTargets.map((g: any) => g.genome_id).join(",")}`
   );
 
   let child = await generateChildGenome(best, second);
@@ -763,9 +786,12 @@ export const evolveArena = async (arenaId: string, rankedGenomes: any[]): Promis
 
   console.log(`[arena:${arenaId}] created child genome=${child.genome_id} token=${child.token_id || "unminted"}`);
 
-  await burnGenome(arenaId, onchain, worst);
+  for (const target of burnTargets) {
+    await burnGenome(arenaId, onchain, target);
+  }
 
-  const nextGenomes = rankedGenomes.filter((genome) => genome.genome_id !== worst.genome_id);
+  const burnIds = new Set(burnTargets.map((g: any) => g.genome_id));
+  const nextGenomes = rankedGenomes.filter((genome) => !burnIds.has(genome.genome_id));
   nextGenomes.push(child);
 
   const nextState: ArenaStateRecord = {
@@ -795,6 +821,10 @@ export const runArena = async (arenaId: string, generations: number): Promise<Ag
     );
 
     latest = await evolveArena(arenaId,round.ranked);
+    if (latest.length <= 1) {
+      console.log(`[arena:${arenaId}] stopping evolution early: ${latest.length} agent remaining`);
+      break;
+    }
   }
 
   return latest;

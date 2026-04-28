@@ -23,6 +23,7 @@ export const env = {
   roundsPerGeneration: parseInt(process.env.ROUNDS_PER_GENERATION ?? "5", 10),
   survivorsPerGeneration: parseInt(process.env.SURVIVORS_PER_GENERATION ?? "2", 10),
   deathsPerGeneration: parseInt(process.env.DEATHS_PER_GENERATION ?? "1", 10),
+  arenaBurnsPerGeneration: parseInt(process.env.ARENA_BURNS_PER_GENERATION ?? "2", 10),
   targetPoolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool"
   
 };
