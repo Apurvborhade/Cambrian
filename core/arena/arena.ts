@@ -39,7 +39,7 @@ export interface ArenaRoundResult {
   arenaId: string;
   generation: number;
   round: number;
-  ranked: ArenaRoundAgentResult[];
+  ranked: ArenaRoundAgentResult[] | any[];
 }
 
 const storage = new ZeroGStorageAdapter();
@@ -296,7 +296,7 @@ const burnGenome = async (onchain: INFTOnchainAdapter | null, genome: AgentGenom
   if (!permission.allowed) {
     console.warn(
       `[arena] burn skipped for ${genome.genome_id}: ${permission.reason ?? "permission denied"} ` +
-        `(signer=${permission.signer}, owner=${permission.contractOwner})`
+      `(signer=${permission.signer}, owner=${permission.contractOwner})`
     );
     return;
   }
@@ -410,13 +410,14 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
   const { state, genomes } = await getArenaGenomes(arenaId);
   const nextRound = state.round + 1;
 
-  const ranked: ArenaRoundAgentResult[] = [];
+  const ranked: any[] = [];
 
   for (const genome of genomes) {
     try {
       const result = await runAgentLoop(genome.genome_id, genome);
       const fitness = roundFitnessScore(result.action);
 
+      console.log(`Fitness of agent ${genome.genome_id}: `, fitness)
       const updatedGenome: AgentGenome = {
         ...genome,
         fitness
@@ -438,6 +439,7 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
       console.log(`[arena:${arenaId}] fitness genome=${genome.genome_id} score=${fitness.toFixed(4)}`);
 
       ranked.push({
+        ...genome,
         genomeId: genome.genome_id,
         tokenId: updatedGenome.token_id,
         fitness,
@@ -555,17 +557,17 @@ export const generateChildGenome = async (g1: AgentGenome, g2: AgentGenome): Pro
   }
 };
 
-export const evolveArena = async (arenaId: string): Promise<AgentGenome[]> => {
+export const evolveArena = async (arenaId: string, rankedGenomes: any[]): Promise<AgentGenome[]> => {
   const { state, genomes } = await getArenaGenomes(arenaId);
 
   if (genomes.length < 3) {
     throw new Error(`Arena ${arenaId} needs at least 3 genomes to evolve.`);
   }
 
-  const ordered = [...genomes].sort((left, right) => right.fitness - left.fitness);
-  const best = ordered[0];
-  const second = ordered[1];
-  const worst = ordered[ordered.length - 1];
+
+  const best = rankedGenomes[0];
+  const second = rankedGenomes[1];
+  const worst = rankedGenomes[rankedGenomes.length - 1];
 
   if (!best || !second || !worst) {
     throw new Error(`Arena ${arenaId} selection failed because rankings are incomplete.`);
@@ -584,7 +586,7 @@ export const evolveArena = async (arenaId: string): Promise<AgentGenome[]> => {
 
   await burnGenome(onchain, worst);
 
-  const nextGenomes = ordered.filter((genome) => genome.genome_id !== worst.genome_id);
+  const nextGenomes = rankedGenomes.filter((genome) => genome.genome_id !== worst.genome_id);
   nextGenomes.push(child);
 
   const nextState: ArenaStateRecord = {
@@ -608,11 +610,12 @@ export const runArena = async (arenaId: string, generations: number): Promise<Ag
 
   for (let generation = 0; generation < generations; generation += 1) {
     const round = await runArenaRound(arenaId);
+    console.log("Ranked: ",round.ranked)
     console.log(
       `[arena:${arenaId}] generation=${round.generation} round=${round.round} top=${round.ranked[0]?.genomeId ?? "none"}`
     );
 
-    latest = await evolveArena(arenaId);
+    latest = await evolveArena(arenaId,round.ranked);
   }
 
   return latest;
