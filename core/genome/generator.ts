@@ -39,7 +39,7 @@ const buildGenome = (input: SeedGenomeInput, index: number): AgentGenome => {
 export const createSeedGenomes = (): AgentGenome[] => [
   buildGenome(
     {
-      id: "genesis-a",
+      id: "genesis-1",
       strategy:
         "You analyze price velocity and volume confirmation. When momentum is strong and the market is expanding quickly, act decisively and exit when the move weakens.",
       toolWeights: {
@@ -56,7 +56,7 @@ export const createSeedGenomes = (): AgentGenome[] => [
   ),
   buildGenome(
     {
-      id: "genesis-b",
+      id: "genesis-2",
       strategy:
         "You assess protocol health, liquidity, and conviction before taking action. Ignore short bursts of noise and prefer patient, high-confidence decisions.",
       toolWeights: {
@@ -73,7 +73,7 @@ export const createSeedGenomes = (): AgentGenome[] => [
   ),
   buildGenome(
     {
-      id: "genesis-c",
+      id: "genesis-3",
       strategy:
         "You identify overextended moves and hunt for reversal conditions. Favor volatility and exhaustion signals over trend continuation.",
       toolWeights: {
@@ -90,7 +90,7 @@ export const createSeedGenomes = (): AgentGenome[] => [
   ),
   buildGenome(
     {
-      id: "genesis-d",
+      id: "genesis-4",
       strategy:
         "You study prior rounds for recurring patterns and only act when the current setup resembles profitable historical sequences with supportive context.",
       toolWeights: {
@@ -107,7 +107,7 @@ export const createSeedGenomes = (): AgentGenome[] => [
   ),
   buildGenome(
     {
-      id: "genesis-e",
+      id: "genesis-5",
       strategy:
         "You behave as a randomized baseline. You consider signals without a strong prior and act inconsistently enough to serve as a control agent.",
       toolWeights: {

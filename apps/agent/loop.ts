@@ -87,19 +87,28 @@ const ensureGenome = async (genomeId: string) => {
   }
 
   if (!genome) {
-    for (const seed of createSeedGenomes()) {
+    const seed = createSeedGenomes().find((candidate) => candidate.genome_id === genomeId);
+
+    if (seed) {
       await storage.setGenome(seed);
 
       const nftAddress = await mintGenomeIfEnabled(seed);
       if (nftAddress && nftAddress !== seed.nft_address) {
-        await storage.setGenome({
+        genome = {
           ...seed,
           nft_address: nftAddress
-        });
+        };
+        await storage.setGenome(genome);
+      } else {
+        genome = seed;
       }
     }
-    genome = await storage.getGenome(genomeId);
-    console.log("Seeded genomes and retrieved genome:", genome, genomeId);
+
+    if (!genome) {
+      genome = await storage.getGenome(genomeId);
+    }
+
+    console.log("Seeded genomes and resolved genome:", genome, genomeId);
   }
 
   if (!genome) {
@@ -121,9 +130,9 @@ const createTask = (): AgentTask => ({
   }
 });
 
-export const runAgentLoop = async (genomeId: string) => {
+export const runAgentLoop = async (genomeId: string, providedGenome?: AgentGenome) => {
   console.log("Ensuring Genome")
-  const genome = await ensureGenome(genomeId);
+  const genome = providedGenome ?? await ensureGenome(genomeId);
   console.log("Genome", genome)
   console.log("Create Task")
   const task = createTask();

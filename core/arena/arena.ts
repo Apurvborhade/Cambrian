@@ -106,6 +106,11 @@ const safeSetGenome = async (genome: AgentGenome): Promise<void> => {
 };
 
 const safeGetGenome = async (genomeId: string): Promise<AgentGenome | null> => {
+  if (await storage.isGenomeDeleted(genomeId)) {
+    genomeFallback.delete(genomeId);
+    return null;
+  }
+
   const cached = genomeFallback.get(genomeId);
   if (cached) {
     return cached;
@@ -336,10 +341,6 @@ const loadExistingArenaGenomes = async (arenaId: string): Promise<AgentGenome[] 
     await Promise.all(state.genomeIds.map(async (genomeId) => safeGetGenome(genomeId)))
   ).filter((genome): genome is AgentGenome => Boolean(genome));
 
-  if (genomes.length === 0) {
-    return null;
-  }
-
   return genomes;
 };
 
@@ -395,71 +396,89 @@ export const createArena = async (arenaId: string, size: number): Promise<AgentG
   return storedGenomes;
 };
 
+const persistGenomeFitness = async (genomeId: string, fitness: number): Promise<void> => {
+  try {
+    const key = `genomes:fitness:${genomeId}`;
+    await storage.setJson(key, { fitness, updatedAt: new Date().toISOString() });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[arena] failed to persist fitness for ${genomeId}: ${message}`);
+  }
+};
+
 export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> => {
   const { state, genomes } = await getArenaGenomes(arenaId);
   const nextRound = state.round + 1;
 
-  const ranked = await Promise.all(
-    genomes.map(async (genome): Promise<ArenaRoundAgentResult> => {
-      try {
-        const result = await runAgentLoop(genome.genome_id);
-        const fitness = roundFitnessScore(result.action);
+  const ranked: ArenaRoundAgentResult[] = [];
 
-        const updatedGenome: AgentGenome = {
-          ...genome,
-          fitness
-        };
+  for (const genome of genomes) {
+    try {
+      const result = await runAgentLoop(genome.genome_id, genome);
+      const fitness = roundFitnessScore(result.action);
 
+      const updatedGenome: AgentGenome = {
+        ...genome,
+        fitness
+      };
+
+      if (genome.token_id && genome.nft_contract) {
+        await persistGenomeFitness(genome.genome_id, fitness);
+      } else {
         await safeSetGenome(updatedGenome);
-        await storage.appendMemory(
-          genome.genome_id,
-          asMemoryFitnessRecord(nextRound, fitness, result.action, state.generation)
-        );
-
-        console.log(
-          `[arena:${arenaId}] decision genome=${genome.genome_id} direction=${result.action.direction} confidence=${result.action.confidence}`
-        );
-        console.log(`[arena:${arenaId}] fitness genome=${genome.genome_id} score=${fitness.toFixed(4)}`);
-
-        return {
-          genomeId: genome.genome_id,
-          tokenId: updatedGenome.token_id,
-          fitness,
-          action: result.action
-        };
-      } catch (error) {
-        const failedAction: AgentAction = {
-          type: "observe",
-          direction: "flat",
-          confidence: 0,
-          rationale: "Agent loop failed during round execution."
-        };
-
-        const fitness = -1;
-        const updatedGenome: AgentGenome = {
-          ...genome,
-          fitness
-        };
-
-        await safeSetGenome(updatedGenome);
-        await storage.appendMemory(
-          genome.genome_id,
-          asMemoryFitnessRecord(nextRound, fitness, failedAction, state.generation)
-        );
-
-        const message = error instanceof Error ? error.message : String(error);
-        console.warn(`[arena:${arenaId}] agent failed genome=${genome.genome_id}: ${message}`);
-        console.log(`[arena:${arenaId}] fitness genome=${genome.genome_id} score=${fitness.toFixed(4)}`);
-
-        return {
-          genomeId: genome.genome_id,
-          tokenId: updatedGenome.token_id,
-          fitness,
-          action: failedAction
-        };
       }
-    })
-  );
+      await storage.appendMemory(
+        genome.genome_id,
+        asMemoryFitnessRecord(nextRound, fitness, result.action, state.generation)
+      );
+
+      console.log(
+        `[arena:${arenaId}] decision genome=${genome.genome_id} direction=${result.action.direction} confidence=${result.action.confidence}`
+      );
+      console.log(`[arena:${arenaId}] fitness genome=${genome.genome_id} score=${fitness.toFixed(4)}`);
+
+      ranked.push({
+        genomeId: genome.genome_id,
+        tokenId: updatedGenome.token_id,
+        fitness,
+        action: result.action
+      });
+    } catch (error) {
+      const failedAction: AgentAction = {
+        type: "observe",
+        direction: "flat",
+        confidence: 0,
+        rationale: "Agent loop failed during round execution."
+      };
+
+      const fitness = -1;
+      const updatedGenome: AgentGenome = {
+        ...genome,
+        fitness
+      };
+
+      if (genome.token_id && genome.nft_contract) {
+        await persistGenomeFitness(genome.genome_id, fitness);
+      } else {
+        await safeSetGenome(updatedGenome);
+      }
+      await storage.appendMemory(
+        genome.genome_id,
+        asMemoryFitnessRecord(nextRound, fitness, failedAction, state.generation)
+      );
+
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[arena:${arenaId}] agent failed genome=${genome.genome_id}: ${message}`);
+      console.log(`[arena:${arenaId}] fitness genome=${genome.genome_id} score=${fitness.toFixed(4)}`);
+
+      ranked.push({
+        genomeId: genome.genome_id,
+        tokenId: updatedGenome.token_id,
+        fitness,
+        action: failedAction
+      });
+    }
+  }
 
   ranked.sort((left, right) => right.fitness - left.fitness);
 

@@ -148,11 +148,18 @@ export class ZeroGStorageAdapter {
   }
 
   public async setGenome(genome: AgentGenome): Promise<void> {
+    await this.setGenomeStatus(genome.genome_id, "active");
     await this.uploadToKV(getGenomeStreamId(), genome.storage_key, genome);
     console.log(`Genome ${genome.genome_id} stored with key ${genome.storage_key}`);
   }
 
   public async getGenome(genomeId: string): Promise<AgentGenome | null> {
+    const status = await this.getGenomeStatus(genomeId);
+
+    if (status === "deleted") {
+      return null;
+    }
+
     const streamId = getGenomeStreamId();
     const value = await this.downloadFromKV(streamId, toGenomeStorageKey(genomeId));
     console.log(`Retrieved value for genome ${genomeId}:`, value);
@@ -187,5 +194,39 @@ export class ZeroGStorageAdapter {
     }
 
     return decodeJsonValue<T>(value.data);
+  }
+
+  private genomeStatusKey(genomeId: string): string {
+    return `genomes:status:${genomeId}`;
+  }
+
+  private async setGenomeStatus(genomeId: string, status: "active" | "deleted"): Promise<void> {
+    await this.setJson(this.genomeStatusKey(genomeId), {
+      status,
+      updatedAt: new Date().toISOString()
+    });
+  }
+
+  private async getGenomeStatus(genomeId: string): Promise<"active" | "deleted" | null> {
+    const status = await this.getJson<{ status?: string }>(this.genomeStatusKey(genomeId));
+
+    if (!status?.status) {
+      return null;
+    }
+
+    if (status.status === "active" || status.status === "deleted") {
+      return status.status;
+    }
+
+    return null;
+  }
+
+  public async isGenomeDeleted(genomeId: string): Promise<boolean> {
+    return (await this.getGenomeStatus(genomeId)) === "deleted";
+  }
+
+  public async deleteGenome(genomeId: string): Promise<void> {
+    this.genomes.delete(genomeId);
+    await this.setGenomeStatus(genomeId, "deleted");
   }
 }
