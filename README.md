@@ -14,7 +14,17 @@ Useful commands:
 
 ```bash
 npm run check
+npm run start:backend
 npm run seed:population
 npm run run:generation
 npm run start:arena
 ```
+
+Backend endpoints:
+
+- `GET /health`
+- `POST /arenas`
+- `GET /arenas/:arenaId`
+- `GET /arenas/:arenaId/agents`
+- `POST /arenas/:arenaId/rounds`
+- `POST /arenas/:arenaId/run`
