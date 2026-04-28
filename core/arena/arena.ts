@@ -42,6 +42,20 @@ export interface ArenaRoundResult {
   ranked: ArenaRoundAgentResult[] | any[];
 }
 
+export interface ArenaStateView {
+  arenaId: string;
+  size: number;
+  generation: number;
+  round: number;
+  genomeIds: string[];
+  updatedAt: string;
+}
+
+export interface ArenaDetails {
+  state: ArenaStateView;
+  genomes: AgentGenome[];
+}
+
 const storage = new ZeroGStorageAdapter();
 const compute = new ZeroGComputeAdapter();
 const genomeFallback = new Map<string, AgentGenome>();
@@ -171,6 +185,15 @@ const safePersistFitness = async (
     );
   }
 };
+
+const toArenaStateView = (state: ArenaStateRecord): ArenaStateView => ({
+  arenaId: state.arenaId,
+  size: state.size,
+  generation: state.generation,
+  round: state.round,
+  genomeIds: [...state.genomeIds],
+  updatedAt: state.updatedAt
+});
 
 const buildExtraSeed = (base: AgentGenome, index: number): AgentGenome => {
   const genomeId = `genesis-${index + 1}-${randomUUID().slice(0, 8)}`;
@@ -329,6 +352,32 @@ const getArenaGenomes = async (arenaId: string): Promise<{ state: ArenaStateReco
 
 export const arenaExists = async (arenaId: string): Promise<boolean> => {
   return (await safeGetArenaState(arenaId)) !== null;
+};
+
+export const getArenaState = async (arenaId: string): Promise<ArenaStateView | null> => {
+  const state = await safeGetArenaState(arenaId);
+  return state ? toArenaStateView(state) : null;
+};
+
+export const getArenaAgents = async (arenaId: string): Promise<AgentGenome[]> => {
+  const { genomes } = await getArenaGenomes(arenaId);
+  return genomes;
+};
+
+export const getArenaDetails = async (arenaId: string): Promise<ArenaDetails | null> => {
+  const state = await safeGetArenaState(arenaId);
+  if (!state) {
+    return null;
+  }
+
+  const genomes = (
+    await Promise.all(state.genomeIds.map(async (genomeId) => safeGetGenome(genomeId)))
+  ).filter((genome): genome is AgentGenome => Boolean(genome));
+
+  return {
+    state: toArenaStateView(state),
+    genomes
+  };
 };
 
 const loadExistingArenaGenomes = async (arenaId: string): Promise<AgentGenome[] | null> => {
