@@ -10,6 +10,7 @@ import { INFTOnchainAdapter } from "../../integrations/onchain/inft";
 import { runAgentLoop } from "../../apps/agent/loop";
 import { env } from "../../config/env";
 import { Wallet, isHexString } from "ethers";
+import { emitArenaEvent } from "./arenaEvents";
 
 interface ArenaStateRecord {
   arenaId: string;
@@ -153,6 +154,15 @@ const safeSetArenaState = async (state: ArenaStateRecord): Promise<void> => {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[arena] failed to persist arena state for ${state.arenaId}, using fallback cache: ${message}`);
   }
+
+  emitArenaEvent({
+    type: "arena.state.updated",
+    arenaId: state.arenaId,
+    timestamp: state.updatedAt,
+    data: {
+      state: toArenaStateView(state)
+    }
+  });
 };
 
 const safeGetArenaState = async (arenaId: string): Promise<ArenaStateRecord | null> => {
@@ -292,7 +302,7 @@ const mintGenome = async (
   }
 };
 
-const burnGenome = async (onchain: INFTOnchainAdapter | null, genome: AgentGenome): Promise<void> => {
+const burnGenome = async (arenaId: string, onchain: INFTOnchainAdapter | null, genome: AgentGenome): Promise<void> => {
   if (!onchain) {
     return;
   }
@@ -327,6 +337,17 @@ const burnGenome = async (onchain: INFTOnchainAdapter | null, genome: AgentGenom
   try {
     const result = await onchain.burn(tokenId);
     console.log(`[arena] burned genome ${genome.genome_id} token ${genome.token_id} tx ${result.txHash}`);
+
+    emitArenaEvent({
+      type: "arena.genome.burned",
+      arenaId,
+      timestamp: new Date().toISOString(),
+      data: {
+        genome,
+        tokenId: genome.token_id,
+        txHash: result.txHash
+      }
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`[arena] burn failed for ${genome.genome_id}: ${message}`);
@@ -417,6 +438,15 @@ export const createArena = async (arenaId: string, size: number): Promise<AgentG
 
     if (existingGenome) {
       storedGenomes.push(existingGenome);
+      emitArenaEvent({
+        type: "arena.genome.reused",
+        arenaId,
+        timestamp: new Date().toISOString(),
+        data: {
+          genome: existingGenome,
+          source: "existing"
+        }
+      });
       console.log(
         `[arena:${arenaId}] reused genome=${existingGenome.genome_id} token=${existingGenome.token_id || "unminted"} contract=${existingGenome.nft_contract || "n/a"}`
       );
@@ -426,6 +456,16 @@ export const createArena = async (arenaId: string, size: number): Promise<AgentG
     const minted = await mintGenome(onchain, seed, 0n, 0n);
     await safeSetGenome(minted);
     storedGenomes.push(minted);
+
+    emitArenaEvent({
+      type: "arena.genome.minted",
+      arenaId,
+      timestamp: new Date().toISOString(),
+      data: {
+        genome: minted,
+        source: "seed"
+      }
+    });
 
     console.log(
       `[arena:${arenaId}] seeded genome=${minted.genome_id} token=${minted.token_id || "unminted"} contract=${minted.nft_contract || "n/a"}`
@@ -442,6 +482,17 @@ export const createArena = async (arenaId: string, size: number): Promise<AgentG
   };
 
   await safeSetArenaState(initialState);
+
+  emitArenaEvent({
+    type: "arena.created",
+    arenaId,
+    timestamp: initialState.updatedAt,
+    data: {
+      state: toArenaStateView(initialState),
+      agents: [...storedGenomes]
+    }
+  });
+
   return storedGenomes;
 };
 
@@ -458,6 +509,17 @@ const persistGenomeFitness = async (genomeId: string, fitness: number): Promise<
 export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> => {
   const { state, genomes } = await getArenaGenomes(arenaId);
   const nextRound = state.round + 1;
+
+  emitArenaEvent({
+    type: "arena.round.started",
+    arenaId,
+    timestamp: new Date().toISOString(),
+    data: {
+      generation: state.generation,
+      round: nextRound,
+      genomeIds: [...state.genomeIds]
+    }
+  });
 
   const ranked: any[] = [];
 
@@ -494,6 +556,19 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
         fitness,
         action: result.action
       });
+
+      emitArenaEvent({
+        type: "arena.agent.evaluated",
+        arenaId,
+        timestamp: new Date().toISOString(),
+        data: {
+          genome: updatedGenome,
+          action: result.action,
+          fitness,
+          generation: state.generation,
+          round: nextRound
+        }
+      });
     } catch (error) {
       const failedAction: AgentAction = {
         type: "observe",
@@ -528,6 +603,19 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
         fitness,
         action: failedAction
       });
+
+      emitArenaEvent({
+        type: "arena.agent.evaluated",
+        arenaId,
+        timestamp: new Date().toISOString(),
+        data: {
+          genome: updatedGenome,
+          action: failedAction,
+          fitness,
+          generation: state.generation,
+          round: nextRound
+        }
+      });
     }
   }
 
@@ -549,6 +637,20 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
     updatedAt: new Date().toISOString()
   };
   await safeSetArenaState(nextState);
+
+  emitArenaEvent({
+    type: "arena.round.completed",
+    arenaId,
+    timestamp: nextState.updatedAt,
+    data: {
+      result: {
+        arenaId,
+        generation: state.generation,
+        round: nextRound,
+        ranked
+      }
+    }
+  });
 
   return {
     arenaId,
@@ -622,6 +724,19 @@ export const evolveArena = async (arenaId: string, rankedGenomes: any[]): Promis
     throw new Error(`Arena ${arenaId} selection failed because rankings are incomplete.`);
   }
 
+  emitArenaEvent({
+    type: "arena.child.planned",
+    arenaId,
+    timestamp: new Date().toISOString(),
+    data: {
+      generation: state.generation + 1,
+      parents: {
+        best,
+        second
+      }
+    }
+  });
+
   console.log(
     `[arena:${arenaId}] selected best=${best.genome_id} (${best.fitness.toFixed(4)}), second=${second.genome_id} (${second.fitness.toFixed(4)}), worst=${worst.genome_id} (${worst.fitness.toFixed(4)})`
   );
@@ -631,9 +746,24 @@ export const evolveArena = async (arenaId: string, rankedGenomes: any[]): Promis
 
   child = await mintGenome(onchain, child, parseTokenId(best.token_id), parseTokenId(second.token_id));
   await safeSetGenome(child);
+
+  emitArenaEvent({
+    type: "arena.child.created",
+    arenaId,
+    timestamp: new Date().toISOString(),
+    data: {
+      generation: state.generation + 1,
+      child,
+      parents: {
+        best,
+        second
+      }
+    }
+  });
+
   console.log(`[arena:${arenaId}] created child genome=${child.genome_id} token=${child.token_id || "unminted"}`);
 
-  await burnGenome(onchain, worst);
+  await burnGenome(arenaId, onchain, worst);
 
   const nextGenomes = rankedGenomes.filter((genome) => genome.genome_id !== worst.genome_id);
   nextGenomes.push(child);

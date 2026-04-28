@@ -36,6 +36,7 @@ const createArenaRecord = async (arenaId: string, size: number): Promise<CreateA
 export const arenaService = {
   createArena: createArenaRecord,
   getArena: getArenaDetails,
+  getArenaSnapshot: getArenaDetails,
   getArenaState,
   getArenaAgents,
   runArenaRound,

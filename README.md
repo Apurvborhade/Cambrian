@@ -22,9 +22,12 @@ npm run start:arena
 
 Backend endpoints:
 
-- `GET /health`
-- `POST /arenas`
-- `GET /arenas/:arenaId`
-- `GET /arenas/:arenaId/agents`
-- `POST /arenas/:arenaId/rounds`
-- `POST /arenas/:arenaId/run`
+- `GET /api/health`
+- `POST /api/arenas`
+- `GET /api/arenas/:arenaId`
+- `GET /api/arenas/:arenaId/state`
+- `GET /api/arenas/:arenaId/agents`
+- `GET /api/arenas/:arenaId/events` for SSE live updates
+- `POST /api/arenas/:arenaId/rounds`
+- `POST /api/arenas/:arenaId/run`
+- `POST /api/tasks`
