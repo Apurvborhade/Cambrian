@@ -21,6 +21,7 @@
   },
   "include": [
     "apps/**/*.ts",
+    "backend/**/*.ts",
     "config/**/*.ts",
     "core/**/*.ts",
     "integrations/**/*.ts",

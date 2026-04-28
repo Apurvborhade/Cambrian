@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "start:backend": "npm run build && node dist/backend/server.js",
     "seed:population": "npm run build && node dist/scripts/seedPopulation.js",
     "spawn:agents": "npm run build && node dist/scripts/spawnAgents.js",
     "run:generation": "npm run build && node dist/scripts/runGeneration.js",
@@ -26,13 +27,17 @@
   },
   "homepage": "https://github.com/Apurvborhade/Cambrian#readme",
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.4",
     "@types/node": "^25.6.0",
     "typescript": "^6.0.3"
   },
   "dependencies": {
     "@0gfoundation/0g-ts-sdk": "^1.2.6",
     "@0glabs/0g-serving-broker": "^0.7.5",
+    "cors": "^2.8.5",
     "dotenv": "^17.4.2",
+    "express": "^5.1.0",
     "ethers": "^6.13.1"
   }
 }
