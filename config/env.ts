@@ -24,6 +24,12 @@ export const env = {
   survivorsPerGeneration: parseInt(process.env.SURVIVORS_PER_GENERATION ?? "2", 10),
   deathsPerGeneration: parseInt(process.env.DEATHS_PER_GENERATION ?? "1", 10),
   arenaBurnsPerGeneration: parseInt(process.env.ARENA_BURNS_PER_GENERATION ?? "2", 10),
+  uniswapApiKey: process.env.UNISWAP_API_KEY ?? "",
+  uniswapChainId: parseInt(process.env.UNISWAP_CHAIN_ID ?? "1", 10),
+  uniswapTokenIn: process.env.UNISWAP_TOKEN_IN ?? "",
+  uniswapTokenOut: process.env.UNISWAP_TOKEN_OUT ?? "",
+  uniswapAmountIn: process.env.UNISWAP_AMOUNT_IN ?? "",
+  uniswapSwapper: process.env.UNISWAP_SWAPPER ?? "",
   targetPoolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool"
   
 };
