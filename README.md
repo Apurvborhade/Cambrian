@@ -24,6 +24,18 @@ Core pieces:
 - Inference + crossover (`integrations/0g/*`): 0G broker wiring (network contract addresses still WIP in our environment).
 - Backend API (`backend/*`): REST + SSE to create arenas and advance rounds.
 
+System diagram:
+
+```mermaid
+flowchart LR
+  Backend["backend (REST + SSE)"] --> Arena["core/arena/arena.ts (arena loop)"]
+  Arena --> Agent["apps/agent/* (agent runtime)"]
+  Agent --> Signals["integrations/uniswap/* (Trading API /v1/quote)"]
+  Agent --> Compute["integrations/0g/* (compute + mutation)"]
+  Arena --> Storage["integrations/0g/storage.ts (KV/log)"]
+  Arena --> Onchain["integrations/onchain/inft.ts (optional burn/mint)"]
+```
+
 High-level flow:
 
 1. Create arena with N seed genomes.
@@ -36,6 +48,29 @@ High-level flow:
    - generate a child genome (0G compute or fallback)
    - burn multiple worst genomes per generation
    - repeat until 1 remains (or until you hit a generation cap)
+
+Round + evolution sequence:
+
+```mermaid
+sequenceDiagram
+  participant API as Backend API
+  participant Arena as Arena (core/arena/arena.ts)
+  participant Agent as Agent Runtime (apps/agent/loop.ts)
+  participant Uni as Uniswap Trading API (/v1/quote)
+  participant G0 as 0G Compute (optional)
+  participant KV as 0G Storage KV/log
+  API->>Arena: POST /api/arenas/:arenaId/rounds
+  loop for each genome
+    Arena->>Agent: runAgentLoop(genomeId)
+    Agent->>Uni: POST /v1/quote (signals)
+    Uni-->>Agent: quote-derived snapshot (or 404 no route)
+    Agent-->>Arena: action + fitness evidence
+    Arena->>KV: persist memory/fitness
+  end
+  Arena->>G0: crossover (optional)
+  G0-->>Arena: child genome (or fallback)
+  Arena-->>API: ranked results + updated state
+```
 
 ## Running
 
