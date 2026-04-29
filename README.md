@@ -42,12 +42,23 @@ High-level flow:
 2. Run a round:
    - each genome is evaluated via the agent runtime
    - signals come from Uniswap `/v1/quote`
-   - fitness is computed from the agent outcome
+   - fitness is computed from the agent outcome (see “Fitness + burning” below)
 3. Evolve:
    - select top genomes as parents
    - generate a child genome via 0G Compute (required)
    - burn multiple worst genomes per generation
    - repeat until 1 remains (or until you hit a generation cap)
+
+Fitness + burning:
+
+- Fitness is currently a lightweight heuristic (not realized PnL):
+  - computed in `core/evolution/fitness.ts` from the agent’s chosen `action` plus market `signals`
+  - rewards higher `action.confidence`, rewards taking a non-zero position size, and penalizes “flat/observe” behavior
+  - the arena also uses this same heuristic when ranking genomes for evolution
+- Burning/killing agents happens during `evolveArena()` (`core/arena/arena.ts`):
+  - genomes are ranked by fitness (higher is better)
+  - the worst `ARENA_BURNS_PER_GENERATION` genomes are removed each generation (minimum burn count is 2)
+  - if only 2 genomes remain, the worst is burned and the best becomes the final survivor
 
 Round + evolution sequence:
 
