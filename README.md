@@ -21,7 +21,7 @@ Core pieces:
 - Arena (`core/arena/arena.ts`): owns population state, runs rounds, scores fitness, evolves generations.
 - Agent runtime (`apps/agent/*`): loads a genome + memory, fetches market signals, reasons, and outputs an action.
 - Signals (`integrations/uniswap/*`): live quote-derived snapshot via the Uniswap Trading API.
-- Inference + crossover (`integrations/0g/*`): 0G broker wiring (network contract addresses still WIP in our environment).
+- Inference + crossover (`integrations/0g/*`): 0G Compute broker wiring (required for reasoning and genome crossover/mutation).
 - Backend API (`backend/*`): REST + SSE to create arenas and advance rounds.
 
 System diagram:
@@ -45,7 +45,7 @@ High-level flow:
    - fitness is computed from the agent outcome
 3. Evolve:
    - select top genomes as parents
-   - generate a child genome (0G compute or fallback)
+   - generate a child genome via 0G Compute (required)
    - burn multiple worst genomes per generation
    - repeat until 1 remains (or until you hit a generation cap)
 
@@ -57,7 +57,7 @@ sequenceDiagram
   participant Arena as Arena (core/arena/arena.ts)
   participant Agent as Agent Runtime (apps/agent/loop.ts)
   participant Uni as Uniswap Trading API (/v1/quote)
-  participant G0 as 0G Compute (optional)
+  participant G0 as 0G Compute (required)
   participant KV as 0G Storage KV/log
   API->>Arena: POST /api/arenas/:arenaId/rounds
   loop for each genome
@@ -67,8 +67,8 @@ sequenceDiagram
     Agent-->>Arena: action + fitness evidence
     Arena->>KV: persist memory/fitness
   end
-  Arena->>G0: crossover (optional)
-  G0-->>Arena: child genome (or fallback)
+  Arena->>G0: crossover / mutation (required)
+  G0-->>Arena: child genome
   Arena-->>API: ranked results + updated state
 ```
 
@@ -151,10 +151,16 @@ Notes:
 
 ### 0G Compute
 
+0G Compute is a hard dependency for this project:
+
+- agent reasoning/inference runs via 0G Compute
+- genome crossover/mutation runs via 0G Compute
+
 The repo contains a broker integration under `integrations/0g/*`.
 
-In our current environment, the 0G broker default contract addresses do not appear deployed on the RPC chain we’re hitting
-(chainId `16602`), so ledger/inference calls fail until we have the correct network contract addresses.
+If you see `BAD_DATA (value="0x")` or messages like “ledger contract … is not deployed”, it usually means the RPC you’re using
+is not the correct 0G Compute-serving network for the broker defaults, or you need to override the ledger/inference contract
+addresses for that network.
 
 ## Useful commands
 
