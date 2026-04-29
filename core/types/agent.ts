@@ -24,6 +24,16 @@ export interface AgentMemoryRecord {
   outcome?: "win" | "loss" | "flat";
   action?: AgentAction;
   fitness:number;
+
+  // Paper/simulated execution state used for outcome-based fitness without on-chain gas.
+  paperPosition?: {
+    direction: "long" | "short";
+    sizeBps: number;
+    entryPrice: number; // decimal-adjusted tokenOut/tokenIn ratio
+    entryAt: string; // ISO timestamp
+    entryBlockNumber?: number;
+  };
+  paperPnl?: number; // decimal return, e.g. 0.01 = +1%
 }
 
 export interface AgentContext {

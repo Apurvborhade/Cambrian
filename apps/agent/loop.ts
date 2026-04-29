@@ -4,20 +4,30 @@ import { createSeedGenomes } from "../../core/genome/generator";
 import { ZeroGStorageAdapter } from "../../integrations/0g/storage";
 import { ZeroGComputeAdapter } from "../../integrations/0g/compute";
 import { INFTOnchainAdapter } from "../../integrations/onchain/inft";
-import { KeeperHubClient } from "../../integrations/keeperhub/client";
+import { KeeperHubClient, type ExecutionReceipt } from "../../integrations/keeperhub/client";
 import { UniswapMarketAdapter } from "../../integrations/uniswap/market";
-import { UniswapSignalAdapter } from "../../integrations/uniswap/adapter";
+import type { AgentSignalSet } from "../../core/types/agent";
 import { env } from "../../config/env";
 import { Wallet, isHexString } from "ethers";
 import { loadAgentMemory, persistAgentMemory } from "./memory";
 import { runReasoning } from "./reasoning";
 import { finalizeAction } from "./action";
 import { calculateFitness } from "../../core/evolution/fitness";
+import { computePaperFitnessIfDue, paperPositionFromAction } from "../../core/evolution/paperFitness";
+import type { MarketSnapshot } from "../../integrations/uniswap/market";
 
 const storage = new ZeroGStorageAdapter();
 
 export interface RunAgentLoopOptions {
   task?: CreateAgentTaskOptions;
+}
+
+export interface RunAgentLoopResult {
+  genomeId: string;
+  task: ReturnType<typeof createAgentTask>;
+  action: Awaited<ReturnType<typeof runReasoning>>;
+  receipt?: ExecutionReceipt;
+  fitness: number;
 }
 
 const createOnchainAdapter = (): INFTOnchainAdapter | null => {
@@ -133,7 +143,7 @@ export const runAgentLoop = async (
   genomeId: string,
   providedGenome?: AgentGenome,
   options: RunAgentLoopOptions = {}
-) => {
+): Promise<RunAgentLoopResult> => {
   console.log("Ensuring Genome")
   const genome = providedGenome ?? await ensureGenome(genomeId);
   console.log("Genome", genome)
@@ -141,16 +151,20 @@ export const runAgentLoop = async (
   const task = createAgentTask(options.task ?? createDefaultTask());
   console.log("Task Created")
 
-  const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
-
-
-
+  const market = new UniswapMarketAdapter();
   const compute = new ZeroGComputeAdapter();
 
 
   const keeper = new KeeperHubClient();
   const memory = await loadAgentMemory(storage, genome);
-  const signals = await signalAdapter.getSignals(task.context.poolAddress);
+  const snapshot: MarketSnapshot = await market.getMarketSnapshot(task.context.poolAddress);
+  const signals: AgentSignalSet = {
+    priceMomentum: snapshot.price,
+    volumeSignal: snapshot.volume,
+    liquidityDepth: snapshot.liquidity,
+    volatilityIndex: snapshot.volatility,
+    blockTiming: 0.5
+  };
 
   console.log("Signals: ", signals)
 
@@ -161,14 +175,18 @@ export const runAgentLoop = async (
   );
 
   const receipt = action.type === "swap" ? await keeper.execute(action) : undefined;
-  const fitness = calculateFitness(action, signals);
+
+  // Outcome-based fitness (paper/simulated): if a prior paper position is due for evaluation, score it via PnL.
+  // Otherwise fall back to the simple heuristic so early rounds still have a signal.
+  const paperFitness = computePaperFitnessIfDue(memory, snapshot);
+  const fitness = paperFitness ? paperFitness.score : calculateFitness(action, signals);
 
   const memoryRecord =
     action.type === "swap"
       ? {
         round: task.round,
         summary: action.rationale,
-        outcome: "flat" as const,
+        outcome: paperFitness?.outcome ?? "flat",
         action
       }
       : {
@@ -177,12 +195,19 @@ export const runAgentLoop = async (
         action
       };
 
-  await persistAgentMemory(storage, genome, { ...memoryRecord, fitness });
+  const paperPosition = paperPositionFromAction(action, snapshot);
+  await persistAgentMemory(storage, genome, {
+    ...memoryRecord,
+    fitness,
+    ...(paperPosition ? { paperPosition } : {}),
+    ...(paperFitness ? { paperPnl: paperFitness.pnl } : {})
+  });
 
   return {
     genomeId,
     task,
     action,
-    receipt
+    ...(receipt ? { receipt } : {}),
+    fitness
   };
 };

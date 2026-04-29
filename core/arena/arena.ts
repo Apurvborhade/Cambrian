@@ -526,7 +526,7 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
   for (const genome of genomes) {
     try {
       const result = await runAgentLoop(genome.genome_id, genome);
-      const fitness = roundFitnessScore(result.action);
+      const fitness = result.fitness;
 
       console.log(`Fitness of agent ${genome.genome_id}: `, fitness)
       const updatedGenome: AgentGenome = {

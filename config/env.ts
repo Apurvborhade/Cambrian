@@ -30,6 +30,11 @@ export const env = {
   uniswapTokenOut: process.env.UNISWAP_TOKEN_OUT ?? "",
   uniswapAmountIn: process.env.UNISWAP_AMOUNT_IN ?? "",
   uniswapSwapper: process.env.UNISWAP_SWAPPER ?? "",
-  targetPoolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool"
+  targetPoolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool",
+
+  // Outcome-based (paper) fitness evaluation window.
+  // If both are set, blocks takes precedence when quote block numbers are available.
+  fitnessEvalBlocks: process.env.FITNESS_EVAL_BLOCKS ? parseInt(process.env.FITNESS_EVAL_BLOCKS, 10) : 0,
+  fitnessEvalMinutes: process.env.FITNESS_EVAL_MINUTES ? parseFloat(process.env.FITNESS_EVAL_MINUTES) : 5
   
 };
