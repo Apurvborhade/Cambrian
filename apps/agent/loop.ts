@@ -152,6 +152,9 @@ export const runAgentLoop = async (
   const memory = await loadAgentMemory(storage, genome);
   const signals = await signalAdapter.getSignals(task.context.poolAddress);
 
+  console.log("Signals: ", signals)
+
+
   const action = finalizeAction(
     await runReasoning(compute, { genome, task, signals, memory }),
     genome
