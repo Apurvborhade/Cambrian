@@ -852,6 +852,151 @@
   padding: 0 8px 2px;
 }
 
+.ledger-page {
+  display: grid;
+  gap: 12px;
+}
+
+.ledger-filters-panel,
+.ledger-table-panel {
+  padding-bottom: 12px;
+}
+
+.ledger-filters-row {
+  padding: 14px 16px 0;
+  display: grid;
+  grid-template-columns: 180px 140px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.ledger-filter {
+  display: grid;
+  gap: 6px;
+}
+
+.ledger-filter-wide {
+  min-width: 0;
+}
+
+.ledger-filter-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.ledger-filter select,
+.ledger-filter input {
+  min-height: 32px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 0 10px;
+  outline: none;
+}
+
+.ledger-filter select:focus,
+.ledger-filter input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.ledger-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 16px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ledger-table-scroll {
+  max-height: 740px;
+  overflow: auto;
+}
+
+.ledger-table {
+  min-width: 100%;
+}
+
+.ledger-table tbody tr {
+  cursor: pointer;
+}
+
+.ledger-table tbody tr:hover {
+  background: var(--bg-tertiary);
+}
+
+.ledger-row td {
+  vertical-align: top;
+}
+
+.ledger-block {
+  color: var(--accent-gold);
+}
+
+.ledger-data-preview {
+  color: var(--text-secondary);
+  max-width: 340px;
+}
+
+.ledger-expanded-row td {
+  padding-top: 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.ledger-json {
+  margin: 0;
+  padding: 12px 12px 14px;
+  background: #050505;
+  border-top: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+.ledger-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ledger-pill-born {
+  color: var(--accent-purple);
+  border-color: rgba(139, 92, 246, 0.28);
+}
+
+.ledger-pill-dead {
+  color: var(--accent-red);
+  border-color: rgba(255, 51, 51, 0.28);
+}
+
+.ledger-pill-fitness {
+  color: var(--accent-cyan);
+  border-color: rgba(0, 255, 204, 0.28);
+}
+
+.ledger-pill-generation {
+  color: var(--accent-gold);
+  border-color: rgba(245, 166, 35, 0.28);
+}
+
+.ledger-pill-round {
+  color: var(--accent-green);
+  border-color: rgba(0, 255, 136, 0.28);
+}
+
 .table-shell {
   overflow: hidden;
 }
