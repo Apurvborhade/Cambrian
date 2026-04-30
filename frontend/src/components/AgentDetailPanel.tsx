@@ -21,11 +21,6 @@ function formatGenomeRef(genomeId: string) {
   return `#241-${suffix}`;
 }
 
-function average(values: number[]) {
-  if (!values.length) return 0;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
 function toolWeightRows(genome: Genome) {
   return [
     ["PRICE_MOMENTUM", genome.tool_weights.price_momentum],
@@ -111,7 +106,7 @@ export function AgentDetailPanel({
               </Link>
             ))
           ) : (
-            <span className="chip chip-muted">GENESIS — NO PARENTS</span>
+            <span className="chip chip-muted">GENESIS - NO_PARENTS</span>
           )}
         </div>
       </div>

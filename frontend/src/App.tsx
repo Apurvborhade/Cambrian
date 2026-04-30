@@ -4,6 +4,7 @@ import { PageHeader } from "./components/PageHeader";
 import { StatusBar } from "./components/StatusBar";
 import { mockTournamentState } from "./data/mockData";
 import { LineagePage } from "./pages/Lineage";
+import { GenomeLabPage } from "./pages/GenomeLab";
 import { SwarmPage } from "./pages/Swarm";
 
 function PlaceholderPage({ title }: { title: string }) {
@@ -30,7 +31,7 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<SwarmPage tournament={mockTournamentState} />} />
           <Route path="/lineage" element={<LineagePage />} />
-          <Route path="/genome" element={<PlaceholderPage title="GENOME_LAB" />} />
+          <Route path="/genome" element={<GenomeLabPage />} />
           <Route path="/tournament" element={<PlaceholderPage title="TOURNAMENT" />} />
           <Route path="/ledger" element={<PlaceholderPage title="LEDGER" />} />
           <Route path="/generation" element={<PlaceholderPage title="GENERATION" />} />
