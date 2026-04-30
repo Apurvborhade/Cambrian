@@ -1275,6 +1275,71 @@
   word-break: break-all;
 }
 
+.settings-page {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-section {
+  padding-bottom: 12px;
+}
+
+.settings-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-table tbody tr td {
+  vertical-align: top;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.status-dot-offline {
+  background: var(--accent-red);
+  box-shadow: 0 0 8px rgba(255, 51, 51, 0.35);
+}
+
+.settings-config-grid,
+.settings-about-grid {
+  padding: 0 16px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-config-row,
+.settings-about-row,
+.env-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.env-grid {
+  padding: 0 16px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.env-key {
+  color: var(--text-primary);
+  letter-spacing: 0.08em;
+}
+
 .table-shell {
   overflow: hidden;
 }

@@ -8,6 +8,7 @@ import { GenomeLabPage } from "./pages/GenomeLab";
 import { LedgerPage } from "./pages/Ledger";
 import { GenerationPage } from "./pages/Generation";
 import { ExecLogPage } from "./pages/ExecLog";
+import { SettingsPage } from "./pages/Settings";
 import { SwarmPage } from "./pages/Swarm";
 import { TournamentPage } from "./pages/Tournament";
 
@@ -40,7 +41,7 @@ function AppShell() {
           <Route path="/ledger" element={<LedgerPage />} />
           <Route path="/generation" element={<GenerationPage />} />
           <Route path="/logs" element={<ExecLogPage />} />
-          <Route path="/settings" element={<PlaceholderPage title="SYSTEM_OS" />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
