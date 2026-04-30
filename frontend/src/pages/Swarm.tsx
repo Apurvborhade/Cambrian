@@ -106,7 +106,7 @@ export function SwarmPage({ tournament }: { tournament: TournamentState }) {
         </article>
 
         <div className="swarm-detail-column">
-          <AgentDetailPanel genome={selectedAgent} />
+          <AgentDetailPanel genome={selectedAgent} allAgents={tournament.agents} />
 
           <article className="panel detail-compact-panel">
             <div className="section-heading">

@@ -237,6 +237,245 @@
   padding: 8px 8px 2px;
 }
 
+.lineage-page {
+  display: grid;
+  gap: 12px;
+}
+
+.lineage-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+}
+
+.lineage-controls-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 0 0;
+}
+
+.lineage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(380px, 0.8fr);
+  gap: 12px;
+}
+
+.lineage-canvas-shell {
+  position: relative;
+  overflow: hidden;
+  min-height: 780px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(0, 255, 204, 0.05), transparent 25%),
+    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.04), transparent 22%),
+    var(--bg-primary);
+}
+
+.lineage-canvas-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(0, 255, 204, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 204, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 100%);
+}
+
+.lineage-svg {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.lineage-axis {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 82px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.lineage-axis-label {
+  position: absolute;
+  left: 12px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.lineage-side-panel {
+  min-width: 0;
+}
+
+.lineage-node {
+  cursor: pointer;
+}
+
+.lineage-node-core {
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1;
+}
+
+.lineage-node-alive .lineage-node-core {
+  fill: rgba(0, 255, 136, 0.95);
+  filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.28));
+}
+
+.lineage-node-dead .lineage-node-core {
+  fill: rgba(255, 51, 51, 0.82);
+  opacity: 0.45;
+}
+
+.lineage-node-selected .lineage-node-core {
+  fill: rgba(0, 255, 204, 0.98);
+  filter: drop-shadow(0 0 12px rgba(0, 255, 204, 0.42));
+}
+
+.lineage-node-evolved .lineage-node-core {
+  fill: rgba(139, 92, 246, 0.95);
+}
+
+.lineage-node-ring {
+  fill: none;
+  stroke: rgba(0, 255, 204, 0.9);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  animation: lineage-ring 1.5s linear infinite;
+}
+
+@keyframes lineage-ring {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+.lineage-node-label,
+.lineage-node-cross {
+  fill: var(--text-primary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.lineage-node-cross {
+  fill: var(--accent-red);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.lineage-edge {
+  fill: none;
+  stroke-width: 1.4;
+}
+
+.lineage-edge-secondary {
+  stroke-dasharray: 4 6;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.84);
+}
+
+.modal-shell {
+  width: min(1200px, 100%);
+  max-height: min(90vh, 900px);
+  overflow: auto;
+  padding: 16px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.modal-subtitle {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.diff-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.diff-column {
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  padding: 12px;
+}
+
+.diff-body {
+  margin-top: 10px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.diff-token {
+  color: var(--text-primary);
+}
+
+.diff-token-added {
+  color: var(--accent-cyan);
+}
+
+.diff-token-removed {
+  color: var(--accent-red);
+  text-decoration: line-through;
+}
+
+.diff-token-muted {
+  color: var(--text-secondary);
+}
+
+.gene-diff-table {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.gene-diff-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.gene-diff-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.gene-diff-value {
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .table-shell {
   overflow: hidden;
 }

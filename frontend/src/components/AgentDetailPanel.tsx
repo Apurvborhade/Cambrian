@@ -38,18 +38,40 @@ function toolWeightRows(genome: Genome) {
 
 export function AgentDetailPanel({
   genome,
+  allAgents = [],
   readOnly = false,
 }: {
   genome: Genome;
+  allAgents?: Genome[];
   readOnly?: boolean;
 }) {
   const navigate = useNavigate();
 
-  const parentAverage = genome.parent_ids.length ? 0.5 : 0.5;
+  const parentAverageFor = (index: number) => {
+    if (!genome.parent_ids.length) {
+      return 0.5;
+    }
+
+    const parentValues = genome.parent_ids
+      .map((parentId) => allAgents.find((agent) => agent.genome_id === parentId))
+      .filter((parent): parent is Genome => Boolean(parent))
+      .map((parent) => [
+        parent.tool_weights.price_momentum,
+        parent.tool_weights.volume_signal,
+        parent.tool_weights.liquidity_depth,
+        parent.tool_weights.volatility_index,
+        parent.tool_weights.block_timing,
+      ][index]);
+
+    if (!parentValues.length) {
+      return 0.5;
+    }
+
+    return parentValues.reduce((sum, value) => sum + value, 0) / parentValues.length;
+  };
+
   const deltas = toolWeightRows(genome).slice(0, 3).map(([label, value], index) => {
-    const baseline = genome.parent_ids.length
-      ? [0.65, 0.6, 0.45][index]
-      : parentAverage;
+    const baseline = parentAverageFor(index);
     return {
       label,
       value,
@@ -119,14 +141,15 @@ export function AgentDetailPanel({
         <FitnessSparkline values={genome.fitness_history} />
       </div>
 
-      <button
-        className="button button-primary agent-isolate-button"
-        type="button"
-        onClick={() => navigate(`/genome?id=${genome.genome_id}`)}
-        disabled={readOnly}
-      >
-        ⬡ ISOLATE_SPECIMEN
-      </button>
+      {!readOnly ? (
+        <button
+          className="button button-primary agent-isolate-button"
+          type="button"
+          onClick={() => navigate(`/genome?id=${genome.genome_id}`)}
+        >
+          ⬡ ISOLATE_SPECIMEN
+        </button>
+      ) : null}
     </aside>
   );
 }
