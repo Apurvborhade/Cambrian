@@ -1,26 +1,9 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import type { GenerationEvent } from "../data/mockData";
-import { MOCK_GENERATION_EVENTS } from "../data/mockData";
+import { Fragment, useMemo, useState } from "react";
 import { EmptyState } from "../components/EmptyState";
+import { useArenaStore } from "../state/arenaStore";
+import type { TimelineRow } from "../state/arenaStore";
 
-type EventTypeFilter = "ALL" | GenerationEvent["event_type"];
-
-const EVENT_TYPE_OPTIONS: EventTypeFilter[] = [
-  "ALL",
-  "AGENT_BORN",
-  "AGENT_DIED",
-  "FITNESS_UPDATED",
-  "GENERATION_STARTED",
-  "ROUND_COMPLETE",
-];
-
-const EVENT_PILL_CLASS: Record<GenerationEvent["event_type"], string> = {
-  AGENT_BORN: "ledger-pill-born",
-  AGENT_DIED: "ledger-pill-dead",
-  FITNESS_UPDATED: "ledger-pill-fitness",
-  GENERATION_STARTED: "ledger-pill-generation",
-  ROUND_COMPLETE: "ledger-pill-round",
-};
+type EventTypeFilter = "ALL" | string;
 
 function shortName(genomeId: string) {
   const raw = genomeId.replace(/^0x/, "");
@@ -33,55 +16,41 @@ function formatPayload(data: Record<string, unknown>) {
   return JSON.stringify(data, null, 2);
 }
 
-function cloneAndSimulate(event: GenerationEvent, index: number): GenerationEvent {
-  return {
-    ...event,
-    block_number: event.block_number + index + 1,
-    timestamp: new Date(Date.now() + index * 1000).toISOString(),
-    data: {
-      ...event.data,
-      simulated: true,
-      tick: index + 1,
-    },
-  };
-}
+const eventPillClass = (eventType: string) => {
+  if (eventType === "arena.child.created" || eventType === "arena.genome.minted" || eventType === "arena.created") {
+    return "ledger-pill-born";
+  }
+  if (eventType === "arena.genome.burned") {
+    return "ledger-pill-dead";
+  }
+  if (eventType === "arena.agent.evaluated" || eventType === "arena.state.updated") {
+    return "ledger-pill-fitness";
+  }
+  if (eventType === "arena.round.started" || eventType === "snapshot") {
+    return "ledger-pill-generation";
+  }
+  return "ledger-pill-round";
+};
+
+const eventOptions = (rows: TimelineRow[]) => ["ALL", ...Array.from(new Set(rows.map((row) => row.type)))];
 
 export function LedgerPage() {
-  const [events, setEvents] = useState<GenerationEvent[]>(MOCK_GENERATION_EVENTS);
+  const { timelineRows } = useArenaStore();
   const [eventType, setEventType] = useState<EventTypeFilter>("ALL");
   const [generation, setGeneration] = useState<"ALL" | string>("ALL");
   const [agentQuery, setAgentQuery] = useState("");
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setEvents((current) => {
-        const base = current[current.length - 1] ?? MOCK_GENERATION_EVENTS[MOCK_GENERATION_EVENTS.length - 1];
-        const next = cloneAndSimulate(base, current.length);
-        return [...current, next];
-      });
-    }, 10000);
-
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-    container.scrollTop = container.scrollHeight;
-  }, [events]);
 
   const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
-      if (eventType !== "ALL" && event.event_type !== eventType) return false;
+    return timelineRows.filter((event) => {
+      if (eventType !== "ALL" && event.type !== eventType) return false;
       if (generation !== "ALL" && String(event.generation) !== generation) return false;
       if (agentQuery && !event.agent_id.toLowerCase().includes(agentQuery.toLowerCase())) return false;
       return true;
     });
-  }, [agentQuery, eventType, events, generation]);
+  }, [agentQuery, eventType, generation, timelineRows]);
 
-  const latestBlock = filteredEvents[filteredEvents.length - 1]?.block_number ?? events[events.length - 1]?.block_number ?? 0;
+  const latestBlock = filteredEvents[filteredEvents.length - 1]?.block_number ?? timelineRows.at(-1)?.block_number ?? 0;
 
   return (
     <main className="page-shell ledger-page">
@@ -94,7 +63,7 @@ export function LedgerPage() {
           <label className="ledger-filter">
             <span className="ledger-filter-label">EVENT_TYPE</span>
             <select value={eventType} onChange={(event) => setEventType(event.target.value as EventTypeFilter)}>
-              {EVENT_TYPE_OPTIONS.map((option) => (
+              {eventOptions(timelineRows).map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
@@ -126,7 +95,7 @@ export function LedgerPage() {
       </section>
 
       <section className="panel ledger-table-panel">
-        <div className="ledger-table-scroll" ref={scrollRef}>
+        <div className="ledger-table-scroll">
           {filteredEvents.length ? (
             <table className="table ledger-table">
               <thead>
@@ -146,14 +115,11 @@ export function LedgerPage() {
                   const expanded = expandedKey === key;
                   return (
                     <Fragment key={key}>
-                      <tr
-                        className="ledger-row"
-                        onClick={() => setExpandedKey((current) => (current === key ? null : key))}
-                      >
+                      <tr className="ledger-row" onClick={() => setExpandedKey((current) => (current === key ? null : key))}>
                         <td className="ledger-block">[BLOCK {event.block_number}]</td>
                         <td>{event.timestamp}</td>
                         <td>
-                          <span className={`ledger-pill ${EVENT_PILL_CLASS[event.event_type]}`}>{event.event_type}</span>
+                          <span className={`ledger-pill ${eventPillClass(event.type)}`}>{event.type}</span>
                         </td>
                         <td>{shortName(event.agent_id)}</td>
                         <td className="numeric">{String(event.generation).padStart(2, "0")}</td>
@@ -173,10 +139,7 @@ export function LedgerPage() {
               </tbody>
             </table>
           ) : (
-            <EmptyState
-              title="NO_MATCHING_EVENTS"
-              subtitle="ADJUST_FILTERS_TO_VIEW_THE_LEDGER_STREAM"
-            />
+            <EmptyState title="NO_MATCHING_EVENTS" subtitle="ADJUST_FILTERS_TO_VIEW_THE_LEDGER_STREAM" />
           )}
         </div>
       </section>

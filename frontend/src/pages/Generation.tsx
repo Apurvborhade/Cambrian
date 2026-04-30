@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { mockTournamentState, type Genome } from "../data/mockData";
+import { useArenaStore } from "../state/arenaStore";
 import { StatusPill } from "../components/StatusPill";
+import type { Genome } from "../data/mockData";
 
 type GeneRow = {
   label: string;
@@ -10,7 +11,7 @@ type GeneRow = {
   delta: number;
 };
 
-const GENERATIONS = [0, 1] as const;
+const GENERATIONS = [0, 1, 2] as const;
 
 function shortName(genomeId: string) {
   const raw = genomeId.replace(/^0x/, "");
@@ -36,48 +37,13 @@ function geneRows(parentA: Genome, parentB: Genome, child: Genome): GeneRow[] {
   };
 
   return [
-    {
-      label: "PRICE_MOMENTUM",
-      oldValue: parentAverage.price_momentum,
-      newValue: child.tool_weights.price_momentum,
-      delta: child.tool_weights.price_momentum - parentAverage.price_momentum,
-    },
-    {
-      label: "VOLUME_SIGNAL",
-      oldValue: parentAverage.volume_signal,
-      newValue: child.tool_weights.volume_signal,
-      delta: child.tool_weights.volume_signal - parentAverage.volume_signal,
-    },
-    {
-      label: "LIQUIDITY_DEPTH",
-      oldValue: parentAverage.liquidity_depth,
-      newValue: child.tool_weights.liquidity_depth,
-      delta: child.tool_weights.liquidity_depth - parentAverage.liquidity_depth,
-    },
-    {
-      label: "VOLATILITY_INDEX",
-      oldValue: parentAverage.volatility_index,
-      newValue: child.tool_weights.volatility_index,
-      delta: child.tool_weights.volatility_index - parentAverage.volatility_index,
-    },
-    {
-      label: "BLOCK_TIMING",
-      oldValue: parentAverage.block_timing,
-      newValue: child.tool_weights.block_timing,
-      delta: child.tool_weights.block_timing - parentAverage.block_timing,
-    },
-    {
-      label: "RISK_THRESHOLD",
-      oldValue: parentAverage.risk_threshold,
-      newValue: child.risk_threshold,
-      delta: child.risk_threshold - parentAverage.risk_threshold,
-    },
-    {
-      label: "MEMORY_WINDOW",
-      oldValue: parentAverage.memory_window,
-      newValue: child.memory_window,
-      delta: child.memory_window - parentAverage.memory_window,
-    },
+    { label: "PRICE_MOMENTUM", oldValue: parentAverage.price_momentum, newValue: child.tool_weights.price_momentum, delta: child.tool_weights.price_momentum - parentAverage.price_momentum },
+    { label: "VOLUME_SIGNAL", oldValue: parentAverage.volume_signal, newValue: child.tool_weights.volume_signal, delta: child.tool_weights.volume_signal - parentAverage.volume_signal },
+    { label: "LIQUIDITY_DEPTH", oldValue: parentAverage.liquidity_depth, newValue: child.tool_weights.liquidity_depth, delta: child.tool_weights.liquidity_depth - parentAverage.liquidity_depth },
+    { label: "VOLATILITY_INDEX", oldValue: parentAverage.volatility_index, newValue: child.tool_weights.volatility_index, delta: child.tool_weights.volatility_index - parentAverage.volatility_index },
+    { label: "BLOCK_TIMING", oldValue: parentAverage.block_timing, newValue: child.tool_weights.block_timing, delta: child.tool_weights.block_timing - parentAverage.block_timing },
+    { label: "RISK_THRESHOLD", oldValue: parentAverage.risk_threshold, newValue: child.risk_threshold, delta: child.risk_threshold - parentAverage.risk_threshold },
+    { label: "MEMORY_WINDOW", oldValue: parentAverage.memory_window, newValue: child.memory_window, delta: child.memory_window - parentAverage.memory_window },
   ];
 }
 
@@ -87,26 +53,21 @@ function deltaClass(delta: number) {
 }
 
 export function GenerationPage() {
+  const { allGenomes, tournament } = useArenaStore();
   const [selectedGeneration, setSelectedGeneration] = useState<(typeof GENERATIONS)[number]>(0);
-  const agents = mockTournamentState.agents;
-  const generation0 = agents.filter((agent) => agent.generation === 0);
-  const generation1 = agents.filter((agent) => agent.generation === 1);
 
-  const generationMap = useMemo(
-    () =>
-      new Map([
-        [0, generation0],
-        [1, generation1],
-      ]),
-    [generation0, generation1],
+  const generationAgents = useMemo(
+    () => allGenomes.filter((agent) => agent.generation === selectedGeneration),
+    [allGenomes, selectedGeneration],
   );
 
-  const generationAgents = generationMap.get(selectedGeneration) ?? [];
   const averageFitness = average(generationAgents.map((agent) => agent.fitness_score));
-
-  const child = generation1[0];
-  const parentA = generation0.find((agent) => agent.genome_id === child?.parent_ids[0]);
-  const parentB = generation0.find((agent) => agent.genome_id === child?.parent_ids[1]);
+  const child = allGenomes.find((agent) => agent.generation > 0) ?? null;
+  const parents = child?.parent_ids
+    .map((parentId) => allGenomes.find((agent) => agent.genome_id === parentId))
+    .filter((agent): agent is Genome => Boolean(agent)) ?? [];
+  const parentA = parents[0];
+  const parentB = parents[1];
 
   return (
     <main className="page-shell generation-page">
@@ -132,11 +93,11 @@ export function GenerationPage() {
       <section className="generation-summary-grid">
         <article className="panel generation-summary-card">
           <div className="panel-title">START_POPULATION</div>
-          <div className="generation-summary-value">5</div>
+          <div className="generation-summary-value">{generationAgents.length}</div>
         </article>
         <article className="panel generation-summary-card">
           <div className="panel-title">END_POPULATION</div>
-          <div className="generation-summary-value">5</div>
+          <div className="generation-summary-value">{generationAgents.filter((agent) => agent.status !== "DEAD").length}</div>
         </article>
         <article className="panel generation-summary-card">
           <div className="panel-title">AVERAGE_FITNESS</div>
@@ -144,7 +105,7 @@ export function GenerationPage() {
         </article>
         <article className="panel generation-summary-card">
           <div className="panel-title">SURVIVORS</div>
-          <div className="generation-summary-value">{mockTournamentState.survivors}</div>
+          <div className="generation-summary-value">{tournament.survivors}</div>
         </article>
       </section>
 
@@ -186,15 +147,20 @@ export function GenerationPage() {
           {child && parentA && parentB ? (
             <div className="crossover-body">
               <div className="crossover-line">
-                PARENTS :: <Link className="chip chip-link" to={`/genome?id=${parentA.genome_id}`}>{shortName(parentA.genome_id)}</Link>
-                <span className="crossover-symbol">×</span>
-                <Link className="chip chip-link" to={`/genome?id=${parentB.genome_id}`}>{shortName(parentB.genome_id)}</Link>
-                <span className="crossover-symbol">→</span>
-                <Link className="chip chip-link" to={`/genome?id=${child.genome_id}`}>{shortName(child.genome_id)}</Link>
+                PARENTS ::{" "}
+                <Link className="chip chip-link" to={`/genome?id=${parentA.genome_id}`}>
+                  {shortName(parentA.genome_id)}
+                </Link>
+                <span className="crossover-symbol">x</span>
+                <Link className="chip chip-link" to={`/genome?id=${parentB.genome_id}`}>
+                  {shortName(parentB.genome_id)}
+                </Link>
+                <span className="crossover-symbol">{'->'}</span>
+                <Link className="chip chip-link" to={`/genome?id=${child.genome_id}`}>
+                  {shortName(child.genome_id)}
+                </Link>
               </div>
-              <div className="crossover-line">
-                CHILD_GENOME :: {child.genome_id}
-              </div>
+              <div className="crossover-line">CHILD_GENOME :: {child.genome_id}</div>
               <div className="crossover-line">
                 MUTATION_RATE_AT_BIRTH :: {(child.mutation_rate_at_birth * 100).toFixed(1)}%
               </div>
@@ -216,7 +182,7 @@ export function GenerationPage() {
                   <span className="gene-delta-label">{row.label}</span>
                   <span className={`gene-delta-value ${deltaClass(row.delta)}`}>
                     {typeof row.oldValue === "number" ? row.oldValue.toFixed(2) : row.oldValue}
-                    <span className="delta-sep"> → </span>
+                    <span className="delta-sep">{' -> '}</span>
                     {typeof row.newValue === "number" ? row.newValue.toFixed(2) : row.newValue}
                     <span className="delta-sep"> :: </span>
                     {row.delta > 0 ? "+" : ""}

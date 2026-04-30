@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { mockTournamentState, type Genome } from "../data/mockData";
 import { StatusPill } from "../components/StatusPill";
+import { useArenaStore } from "../state/arenaStore";
+import type { Genome } from "../data/mockData";
 
 type RoundCell = {
   agent: Genome;
@@ -25,11 +26,7 @@ function buildCells(agents: Genome[], currentRound: number, roundsPerGeneration:
       const round = index + 1;
       const value = agent.fitness_history[index] ?? null;
       const outcome: RoundCell["outcome"] =
-        round > currentRound || value === null
-          ? "PENDING"
-          : value >= 0.5
-            ? "POSITIVE"
-            : "NEGATIVE";
+        round > currentRound || value === null ? "PENDING" : value >= 0.5 ? "POSITIVE" : "NEGATIVE";
       const action: RoundCell["action"] = value === null ? "HOLD" : value >= 0.65 ? "BUY" : "SELL";
       const confidence = value === null ? 0 : Math.min(0.95, Math.max(0.12, value / 1.2));
       return { agent, round, value, outcome, action, confidence };
@@ -44,7 +41,7 @@ function valueLabel(value: number | null) {
 }
 
 export function TournamentPage() {
-  const tournament = mockTournamentState;
+  const { tournament } = useArenaStore();
   const [selectedCell, setSelectedCell] = useState<RoundCell | null>(null);
 
   const sortedAgents = useMemo(
@@ -58,7 +55,6 @@ export function TournamentPage() {
   );
 
   const progressPercent = (tournament.current_round / tournament.rounds_per_generation) * 100;
-
   const chartData = tournament.generation_fitness_avg.map((value, index) => ({
     generation: `GEN_${String(index).padStart(2, "0")}`,
     value,
@@ -80,7 +76,10 @@ export function TournamentPage() {
             <div className="panel-title">TOURNAMENT</div>
             <div className="tournament-header-values">
               <span>GENERATION :: {String(tournament.current_generation).padStart(2, "0")}</span>
-              <span>ROUND :: {String(tournament.current_round).padStart(2, "0")} / {String(tournament.rounds_per_generation).padStart(2, "0")}</span>
+              <span>
+                ROUND :: {String(tournament.current_round).padStart(2, "0")} /{" "}
+                {String(tournament.rounds_per_generation).padStart(2, "0")}
+              </span>
               <span>STATUS :: ACTIVE</span>
             </div>
           </div>
@@ -97,7 +96,9 @@ export function TournamentPage() {
         <article className="panel tournament-grid-panel">
           <div className="section-heading">
             <div className="panel-title">ROUND_GRID</div>
-            <div className="section-subtitle">5_AGENTS × 5_ROUNDS</div>
+            <div className="section-subtitle">
+              {sortedAgents.length}_AGENTS x {tournament.rounds_per_generation}_ROUNDS
+            </div>
           </div>
           <div className="tournament-grid">
             <div className="tournament-grid-corner">AGENT / ROUND</div>
@@ -130,7 +131,8 @@ export function TournamentPage() {
                   ROUND_{String(selectedCell.round).padStart(2, "0")} | {shortName(selectedCell.agent.genome_id)}
                 </div>
                 <div className="tournament-tooltip-line">
-                  FITNESS: {valueLabel(selectedCell.value)} | ACTION: {selectedCell.action} | CONFIDENCE: {selectedCell.confidence.toFixed(2)}
+                  FITNESS: {valueLabel(selectedCell.value)} | ACTION: {selectedCell.action} | CONFIDENCE:{" "}
+                  {selectedCell.confidence.toFixed(2)}
                 </div>
                 <div className="tournament-tooltip-line">
                   OUTCOME: {selectedCell.outcome} | GENOME_REF :: {selectedCell.agent.storage_key}

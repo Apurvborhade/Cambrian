@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
-import type { Genome, TournamentState } from "../data/mockData";
+import { useEffect, useMemo } from "react";
 import { AgentDetailPanel } from "../components/AgentDetailPanel";
 import { StatusPill } from "../components/StatusPill";
+import { useArenaStore } from "../state/arenaStore";
+import type { Genome } from "../data/mockData";
 
 function shortName(genomeId: string) {
   const raw = genomeId.replace(/^0x/, "");
@@ -31,16 +32,29 @@ function statValue(value: string) {
   return <div className="stat-card-value">{value}</div>;
 }
 
-export function SwarmPage({ tournament }: { tournament: TournamentState }) {
-  const [selectedId, setSelectedId] = useState("0xbeta_7x");
+export function SwarmPage() {
+  const { tournament, selectedGenomeId, setSelectedGenomeId } = useArenaStore();
+  const selectedId = selectedGenomeId;
 
   const selectedAgent = useMemo(
-    () => tournament.agents.find((agent) => agent.genome_id === selectedId) ?? tournament.agents[0],
+    () =>
+      tournament.agents.find((agent) => agent.genome_id === selectedId) ??
+      tournament.agents[0] ??
+      null,
     [selectedId, tournament.agents],
   );
 
   const aliveCount = tournament.agents.filter((agent) => agent.status !== "DEAD").length;
-  const avgFitness = (tournament.agents.reduce((sum, agent) => sum + agent.fitness_score, 0) / tournament.agents.length).toFixed(2);
+  const avgFitness = (
+    tournament.agents.reduce((sum, agent) => sum + agent.fitness_score, 0) /
+    Math.max(1, tournament.agents.length)
+  ).toFixed(2);
+
+  useEffect(() => {
+    if (selectedAgent && selectedGenomeId !== selectedAgent.genome_id) {
+      setSelectedGenomeId(selectedAgent.genome_id);
+    }
+  }, [selectedAgent, selectedGenomeId, setSelectedGenomeId]);
 
   return (
     <main className="page-shell">
@@ -87,7 +101,9 @@ export function SwarmPage({ tournament }: { tournament: TournamentState }) {
                   <tr
                     key={agent.genome_id}
                     className={`agent-row${active ? " agent-row-active" : ""}`}
-                    onClick={() => setSelectedId(agent.genome_id)}
+                    onClick={() => {
+                      setSelectedGenomeId(agent.genome_id);
+                    }}
                   >
                     <td>
                       <div className="agent-cell-main">{shortName(agent.genome_id)}</div>
@@ -106,7 +122,7 @@ export function SwarmPage({ tournament }: { tournament: TournamentState }) {
         </article>
 
         <div className="swarm-detail-column">
-          <AgentDetailPanel genome={selectedAgent} allAgents={tournament.agents} />
+          {selectedAgent ? <AgentDetailPanel genome={selectedAgent} allAgents={tournament.agents} /> : null}
 
           <article className="panel detail-compact-panel">
             <div className="section-heading">
@@ -114,21 +130,23 @@ export function SwarmPage({ tournament }: { tournament: TournamentState }) {
               <div className="section-subtitle">DELTA_FROM_PARENT_AVERAGE</div>
             </div>
             <div className="detail-compact-grid">
-              {computeMutationAdaptations(selectedAgent).map(([label, value, baseline]) => {
-                const delta = value - baseline;
-                const deltaClass =
-                  delta > 0 ? "delta-positive" : delta < 0 ? "delta-negative" : "delta-neutral";
-                const sign = delta > 0 ? "+" : "";
-                return (
-                  <div key={label} className="compact-mutation-row">
-                    <span className="compact-mutation-label">{label}</span>
-                    <span className={`compact-mutation-value ${deltaClass}`}>
-                      {value.toFixed(2)} <span className="delta-sep">::</span> {sign}
-                      {delta.toFixed(2)}
-                    </span>
-                  </div>
-                );
-              })}
+              {selectedAgent
+                ? computeMutationAdaptations(selectedAgent).map(([label, value, baseline]) => {
+                    const delta = value - baseline;
+                    const deltaClass =
+                      delta > 0 ? "delta-positive" : delta < 0 ? "delta-negative" : "delta-neutral";
+                    const sign = delta > 0 ? "+" : "";
+                    return (
+                      <div key={label} className="compact-mutation-row">
+                        <span className="compact-mutation-label">{label}</span>
+                        <span className={`compact-mutation-value ${deltaClass}`}>
+                          {value.toFixed(2)} <span className="delta-sep">::</span> {sign}
+                          {delta.toFixed(2)}
+                        </span>
+                      </div>
+                    );
+                  })
+                : null}
             </div>
           </article>
         </div>

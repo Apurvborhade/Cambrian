@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { AgentDetailPanel } from "../components/AgentDetailPanel";
 import { GenomeDiffModal } from "../components/GenomeDiffModal";
-import { mockTournamentState, type Genome } from "../data/mockData";
+import { EmptyState } from "../components/EmptyState";
+import { useArenaStore } from "../state/arenaStore";
+import type { Genome } from "../data/mockData";
 
 type GraphNode = {
   genome: Genome;
@@ -19,7 +21,6 @@ function shortName(genomeId: string) {
 }
 
 function buildGraph(agents: Genome[]) {
-  const byId = new Map(agents.map((agent) => [agent.genome_id, agent]));
   const childrenByParent = new Map<string, Genome[]>();
 
   agents.forEach((agent) => {
@@ -61,7 +62,6 @@ function buildGraph(agents: Genome[]) {
   });
 
   return {
-    byId,
     root: {
       genome: rootGenome,
       children: roots.map((root) => buildNode(root)),
@@ -75,20 +75,35 @@ function curvePath(source: { x: number; y: number }, target: { x: number; y: num
 }
 
 export function LineagePage() {
-  const agents = mockTournamentState.agents;
-  const { root } = useMemo(() => buildGraph(agents), [agents]);
+  const {
+    allGenomes,
+    currentGenome,
+    arenaId,
+    setArenaId,
+    createArena,
+    runArena,
+    runRound,
+    loading,
+    error,
+  } = useArenaStore();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 780 });
   const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
   const [showDead, setShowDead] = useState(true);
-  const [selectedIds, setSelectedIds] = useState<string[]>(["0xbeta_7x"]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [diffOpen, setDiffOpen] = useState(false);
+  const [draftArenaId, setDraftArenaId] = useState(arenaId);
+  const [draftArenaSize, setDraftArenaSize] = useState(5);
+  const [draftRunGenerations, setDraftRunGenerations] = useState(1);
 
-  const selectedAgent =
-    agents.find((agent) => agent.genome_id === selectedIds[selectedIds.length - 1]) ?? agents[0];
-  const diffParent = selectedIds.length === 2 ? agents.find((agent) => agent.genome_id === selectedIds[0]) : undefined;
-  const diffDescendant = selectedIds.length === 2 ? agents.find((agent) => agent.genome_id === selectedIds[1]) : undefined;
+  const selectedAgent = useMemo(() => {
+    const id = selectedIds[selectedIds.length - 1];
+    return allGenomes.find((agent) => agent.genome_id === id) ?? currentGenome ?? allGenomes[0] ?? null;
+  }, [allGenomes, currentGenome, selectedIds]);
+
+  const diffParent = selectedIds.length === 2 ? allGenomes.find((agent) => agent.genome_id === selectedIds[0]) : undefined;
+  const diffDescendant = selectedIds.length === 2 ? allGenomes.find((agent) => agent.genome_id === selectedIds[1]) : undefined;
 
   useEffect(() => {
     const updateSize = () => {
@@ -104,18 +119,17 @@ export function LineagePage() {
     return () => resizeObserver.disconnect();
   }, []);
 
-  const hierarchy = useMemo(() => d3.hierarchy(root), [root]);
-  const treeLayout = useMemo(() => {
-    const layout = d3.tree<GraphNode>().nodeSize([128, 150]);
-    return layout(hierarchy);
-  }, [hierarchy]);
-
+  const graph = useMemo(() => buildGraph(allGenomes), [allGenomes]);
+  const hierarchy = useMemo(() => d3.hierarchy(graph.root), [graph.root]);
+  const treeLayout = useMemo(() => d3.tree<GraphNode>().nodeSize([128, 150])(hierarchy), [hierarchy]);
   const positionedNodes = treeLayout.descendants() as PositionedNode[];
   const nodeMap = new Map(positionedNodes.map((node) => [node.data.genome.genome_id, node]));
-  const visibleNodes = positionedNodes.filter((node) => node.data.genome.genome_id !== "__ROOT__" && (showDead || node.data.genome.status !== "DEAD"));
+  const visibleNodes = positionedNodes.filter(
+    (node) => node.data.genome.genome_id !== "__ROOT__" && (showDead || node.data.genome.status !== "DEAD"),
+  );
   const visibleIds = new Set(visibleNodes.map((node) => node.data.genome.genome_id));
 
-  const additionalEdges = agents.flatMap((agent) =>
+  const additionalEdges = allGenomes.flatMap((agent) =>
     agent.parent_ids.slice(1).flatMap((parentId) => {
       const source = nodeMap.get(parentId);
       const target = nodeMap.get(agent.genome_id);
@@ -152,9 +166,13 @@ export function LineagePage() {
     zoomRef.current = zoom;
     selection.call(zoom);
     const centered = d3.zoomIdentity.translate(viewport.width / 2, 84).scale(1);
-    selection.call(zoom.transform as any, centered);
+    selection.call(zoom.transform as any, centered as any);
     setTransform(centered);
   }, [viewport.width]);
+
+  useEffect(() => {
+    setDraftArenaId(arenaId);
+  }, [arenaId]);
 
   useEffect(() => {
     if (selectedIds.length === 2) {
@@ -176,8 +194,7 @@ export function LineagePage() {
       if (exists) {
         return current.filter((id) => id !== genomeId);
       }
-      const next = [...current, genomeId].slice(-2);
-      return next;
+      return [...current, genomeId].slice(-2);
     });
   };
 
@@ -185,12 +202,31 @@ export function LineagePage() {
     if (!svgRef.current || !zoomRef.current) return;
     const selection = d3.select(svgRef.current);
     const centered = d3.zoomIdentity.translate(viewport.width / 2, 84).scale(1);
-    selection
-      .transition()
-      .duration(250)
-      .call(zoomRef.current.transform, centered);
+    selection.transition().duration(250).call(zoomRef.current.transform as any, centered as any);
     setTransform(centered);
   };
+
+  const handleCreateArena = async () => {
+    await createArena(draftArenaId.trim() || arenaId, draftArenaSize);
+  };
+
+  const handleRunArena = async () => {
+    await runArena(Math.max(1, draftRunGenerations));
+  };
+
+  if (!allGenomes.length && !loading) {
+    return (
+      <main className="page-shell lineage-page">
+        <section className="panel lineage-controls">
+          <div className="section-heading">
+            <div className="panel-title">LINEAGE_GRAPH</div>
+            <div className="section-subtitle">BACKEND_DATA_PENDING</div>
+          </div>
+        </section>
+        <EmptyState title="NO_GENOMES_AVAILABLE" subtitle="CREATE_AN_ARENA_TO_BEGIN_VISUALIZATION" />
+      </main>
+    );
+  }
 
   return (
     <main className="page-shell lineage-page">
@@ -200,6 +236,39 @@ export function LineagePage() {
           <div className="section-subtitle">D3_TREE_LAYOUT :: PARENT_TO_CHILD_EDGES</div>
         </div>
         <div className="lineage-controls-actions">
+          <label className="lineage-control-field">
+            <span className="ledger-filter-label">ARENA_ID</span>
+            <input value={draftArenaId} onChange={(event) => setDraftArenaId(event.target.value)} />
+          </label>
+          <label className="lineage-control-field">
+            <span className="ledger-filter-label">ARENA_SIZE</span>
+            <input
+              type="number"
+              min={1}
+              max={32}
+              value={draftArenaSize}
+              onChange={(event) => setDraftArenaSize(Number(event.target.value) || 5)}
+            />
+          </label>
+          <button className="button button-primary" type="button" onClick={handleCreateArena}>
+            [CREATE_ARENA]
+          </button>
+          <label className="lineage-control-field">
+            <span className="ledger-filter-label">RUN_GENERATIONS</span>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={draftRunGenerations}
+              onChange={(event) => setDraftRunGenerations(Number(event.target.value) || 1)}
+            />
+          </label>
+          <button className="button" type="button" onClick={runRound}>
+            [RUN_ROUND]
+          </button>
+          <button className="button" type="button" onClick={handleRunArena}>
+            [RUN_ARENA]
+          </button>
           <button className="button" type="button" onClick={() => setShowDead((value) => !value)}>
             [SHOW_DEAD] {showDead ? "ON" : "OFF"}
           </button>
@@ -215,6 +284,7 @@ export function LineagePage() {
             [GENOME_DIFF]
           </button>
         </div>
+        {error ? <div className="lineage-error">{error}</div> : null}
       </div>
 
       <section className="lineage-grid">
@@ -287,7 +357,7 @@ export function LineagePage() {
                   >
                     {selected ? <circle className="lineage-node-ring" r={radius + 8} /> : null}
                     <circle className="lineage-node-core" r={radius} />
-                    {genome.status === "DEAD" ? <text className="lineage-node-cross" y={4}>✕</text> : null}
+                    {genome.status === "DEAD" ? <text className="lineage-node-cross" y={4}>x</text> : null}
                     <text className="lineage-node-label" y={radius + 20}>
                       {shortName(genome.genome_id)}
                     </text>
@@ -299,16 +369,12 @@ export function LineagePage() {
         </article>
 
         <aside className="lineage-side-panel">
-          <AgentDetailPanel genome={selectedAgent} allAgents={agents} readOnly />
+          {selectedAgent ? <AgentDetailPanel genome={selectedAgent} allAgents={allGenomes} readOnly /> : null}
         </aside>
       </section>
 
       {diffOpen && diffParent && diffDescendant ? (
-        <GenomeDiffModal
-          parent={diffParent}
-          descendant={diffDescendant}
-          onClose={() => setDiffOpen(false)}
-        />
+        <GenomeDiffModal parent={diffParent} descendant={diffDescendant} onClose={() => setDiffOpen(false)} />
       ) : null}
     </main>
   );

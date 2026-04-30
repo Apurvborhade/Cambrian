@@ -1,6 +1,6 @@
 import type React from "react";
 import { useMemo } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -13,9 +13,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { AgentDetailPanel } from "../components/AgentDetailPanel";
 import { StatusPill } from "../components/StatusPill";
-import { mockTournamentState, type Genome } from "../data/mockData";
+import { useArenaStore } from "../state/arenaStore";
+import type { Genome } from "../data/mockData";
 
 function shortName(genomeId: string) {
   const raw = genomeId.replace(/^0x/, "");
@@ -50,38 +50,50 @@ function fieldRow(label: string, value: string | number | React.ReactNode) {
 
 export function GenomeLabPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const { allGenomes } = useArenaStore();
 
   const selectedGenomeId = searchParams.get("id");
-  const agents = mockTournamentState.agents;
-  const genome = useMemo<Genome>(() => {
-    return (
-      agents.find((agent) => agent.genome_id === selectedGenomeId) ??
-      agents.find((agent) => agent.genome_id === "0xbeta_7x") ??
-      agents[0]
-    );
-  }, [agents, selectedGenomeId]);
+  const genome = useMemo<Genome | null>(() => {
+    return allGenomes.find((agent) => agent.genome_id === selectedGenomeId) ?? allGenomes[0] ?? null;
+  }, [allGenomes, selectedGenomeId]);
 
-  const showPicker = !selectedGenomeId || !agents.some((agent) => agent.genome_id === selectedGenomeId);
+  const showPicker = !selectedGenomeId || !allGenomes.some((agent) => agent.genome_id === selectedGenomeId);
 
-  const radarData = [
-    { axis: "PRICE_MOMENTUM", value: genome.tool_weights.price_momentum },
-    { axis: "VOLUME_SIGNAL", value: genome.tool_weights.volume_signal },
-    { axis: "LIQUIDITY_DEPTH", value: genome.tool_weights.liquidity_depth },
-    { axis: "VOLATILITY_INDEX", value: genome.tool_weights.volatility_index },
-    { axis: "BLOCK_TIMING", value: genome.tool_weights.block_timing },
-  ];
+  const radarData = genome
+    ? [
+        { axis: "PRICE_MOMENTUM", value: genome.tool_weights.price_momentum },
+        { axis: "VOLUME_SIGNAL", value: genome.tool_weights.volume_signal },
+        { axis: "LIQUIDITY_DEPTH", value: genome.tool_weights.liquidity_depth },
+        { axis: "VOLATILITY_INDEX", value: genome.tool_weights.volatility_index },
+        { axis: "BLOCK_TIMING", value: genome.tool_weights.block_timing },
+      ]
+    : [];
 
-  const fitnessHistory = genome.fitness_history.map((value, index) => ({
+  const fitnessHistory = genome?.fitness_history.map((value, index) => ({
     round: `R${String(index + 1).padStart(2, "0")}`,
     value,
-  }));
+  })) ?? [];
 
-  const roundsActive = genome.fitness_history.filter((value) => value !== 0).length;
-  const totalRounds = genome.fitness_history.length;
-  const riskPercent = Math.round(genome.risk_threshold * 100);
+  const roundsActive = genome ? genome.fitness_history.filter((value) => value !== 0).length : 0;
+  const totalRounds = genome?.fitness_history.length ?? 0;
+  const riskPercent = genome ? Math.round(genome.risk_threshold * 100) : 0;
 
-  const parentIds = genome.parent_ids;
+  if (!genome) {
+    return (
+      <main className="page-shell genome-page">
+        <section className="panel genome-picker-panel">
+          <div className="section-heading">
+            <div className="panel-title">GENOME_SELECTOR</div>
+            <div className="section-subtitle">NO_GENOMES_AVAILABLE</div>
+          </div>
+          <div className="empty-state">
+            <div className="empty-state-title">NO_DATA_FROM_BACKEND</div>
+            <div className="empty-state-copy">CREATE_OR_RUN_AN_ARENA_TO_POPULATE_GENOMES</div>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="page-shell genome-page">
@@ -113,7 +125,7 @@ export function GenomeLabPage() {
             <div className="section-subtitle">SELECT_A_SPECIMEN_TO_INSPECT</div>
           </div>
           <div className="genome-picker-grid">
-            {agents.map((agent) => (
+            {allGenomes.map((agent) => (
               <button
                 key={agent.genome_id}
                 className={`genome-picker-card${agent.genome_id === genome.genome_id ? " genome-picker-card-active" : ""}`}
@@ -158,9 +170,9 @@ export function GenomeLabPage() {
             {fieldRow("GENERATION", <span className="status-pill status-pill-evolved">GEN_{String(genome.generation).padStart(2, "0")}</span>)}
             {fieldRow(
               "PARENT_IDS",
-              parentIds.length ? (
+              genome.parent_ids.length ? (
                 <div className="chip-row">
-                  {parentIds.map((parentId) => (
+                  {genome.parent_ids.map((parentId) => (
                     <Link key={parentId} className="chip chip-link" to={`/genome?id=${parentId}`}>
                       {shortName(parentId)}
                     </Link>
@@ -208,17 +220,8 @@ export function GenomeLabPage() {
               <RadarChart data={radarData} margin={{ top: 16, right: 24, bottom: 16, left: 24 }}>
                 <PolarGrid stroke="rgba(255,255,255,0.08)" />
                 <PolarAngleAxis dataKey="axis" tick={{ fill: "#666666", fontSize: 11 }} />
-                <PolarRadiusAxis
-                  tick={false}
-                  axisLine={false}
-                  domain={[0, 1]}
-                />
-                <Radar
-                  dataKey="value"
-                  stroke="#00ffcc"
-                  fill="rgba(0,255,204,0.15)"
-                  fillOpacity={1}
-                />
+                <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 1]} />
+                <Radar dataKey="value" stroke="#00ffcc" fill="rgba(0,255,204,0.15)" fillOpacity={1} />
               </RadarChart>
             </ResponsiveContainer>
           </div>

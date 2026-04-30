@@ -1,3 +1,5 @@
+import { useArenaStore } from "../state/arenaStore";
+
 const SERVICES = [
   "0G_CHAIN",
   "0G_STORAGE",
@@ -42,24 +44,26 @@ function statusRow(label: string) {
 }
 
 export function SettingsPage() {
+  const { backendHealthy, backendLatencyMs, arenaId } = useArenaStore();
+
   return (
     <main className="page-shell settings-page">
       <section className="settings-summary-grid">
         <article className="panel stat-card">
           <div className="panel-title">SYSTEM_STATUS</div>
-          <div className="genome-hero-value accent">OFFLINE</div>
+          <div className="genome-hero-value accent">{backendHealthy === true ? "ONLINE" : "OFFLINE"}</div>
         </article>
         <article className="panel stat-card">
           <div className="panel-title">TOURNAMENT_MODE</div>
-          <div className="genome-hero-value">READ_ONLY</div>
+          <div className="genome-hero-value">BACKEND_CONNECTED</div>
         </article>
         <article className="panel stat-card">
-          <div className="panel-title">BUILD_HASH</div>
-          <div className="genome-hero-value mono-break">frontend-1a2b3c4</div>
+          <div className="panel-title">LATENCY</div>
+          <div className="genome-hero-value mono-break">{backendLatencyMs === null ? "-- ms" : `${backendLatencyMs} ms`}</div>
         </article>
         <article className="panel stat-card">
-          <div className="panel-title">REPO_LINK</div>
-          <div className="genome-hero-value mono-break">github.com/Apurvborhade/Cambrian</div>
+          <div className="panel-title">ARENA_ID</div>
+          <div className="genome-hero-value mono-break">{arenaId}</div>
         </article>
       </section>
 
@@ -118,7 +122,7 @@ export function SettingsPage() {
         </div>
         <div className="settings-about-grid">
           <div className="settings-about-row"><span>DARWIN_PROTOCOL_VERSION</span><span>0.1.0</span></div>
-          <div className="settings-about-row"><span>BUILD_HASH</span><span>frontend-1a2b3c4</span></div>
+          <div className="settings-about-row"><span>BUILD_HASH</span><span>frontend-live-backend</span></div>
           <div className="settings-about-row"><span>REPO_LINK</span><span>github.com/Apurvborhade/Cambrian</span></div>
         </div>
       </section>
