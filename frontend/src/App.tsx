@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { PageHeader } from "./components/PageHeader";
 import { StatusBar } from "./components/StatusBar";
 import { mockTournamentState } from "./data/mockData";
+import { SwarmPage } from "./pages/Swarm";
 
 function PlaceholderPage({ title }: { title: string }) {
   return (
@@ -26,7 +27,7 @@ function AppShell() {
           tournament={mockTournamentState}
         />
         <Routes>
-          <Route path="/" element={<PlaceholderPage title="SWARM" />} />
+          <Route path="/" element={<SwarmPage tournament={mockTournamentState} />} />
           <Route path="/lineage" element={<PlaceholderPage title="LINEAGE" />} />
           <Route path="/genome" element={<PlaceholderPage title="GENOME_LAB" />} />
           <Route path="/tournament" element={<PlaceholderPage title="TOURNAMENT" />} />
