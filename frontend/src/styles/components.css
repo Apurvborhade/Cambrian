@@ -254,30 +254,47 @@
 }
 
 .lineage-controls {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 16px;
+  align-items: start;
   padding-bottom: 12px;
 }
 
 .lineage-controls-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, max-content));
+  gap: 10px 12px;
+  align-items: end;
+  justify-content: end;
   padding: 14px 16px 0 0;
+}
+
+.lineage-control-field {
+  display: grid;
+  gap: 6px;
+}
+
+.lineage-control-field input {
+  width: 100%;
+  min-width: 96px;
+}
+
+.lineage-controls .section-heading {
+  padding-right: 0;
 }
 
 .lineage-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(380px, 0.8fr);
   gap: 12px;
+  align-items: start;
 }
 
 .lineage-canvas-shell {
   position: relative;
   overflow: hidden;
-  min-height: 780px;
+  min-height: 760px;
   background:
     radial-gradient(circle at 20% 20%, rgba(0, 255, 204, 0.05), transparent 25%),
     radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.04), transparent 22%),
@@ -321,6 +338,7 @@
 
 .lineage-side-panel {
   min-width: 0;
+  align-self: start;
 }
 
 .lineage-node {
