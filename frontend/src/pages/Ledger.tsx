@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { GenerationEvent } from "../data/mockData";
 import { MOCK_GENERATION_EVENTS } from "../data/mockData";
+import { EmptyState } from "../components/EmptyState";
 
 type EventTypeFilter = "ALL" | GenerationEvent["event_type"];
 
@@ -126,50 +127,57 @@ export function LedgerPage() {
 
       <section className="panel ledger-table-panel">
         <div className="ledger-table-scroll" ref={scrollRef}>
-          <table className="table ledger-table">
-            <thead>
-              <tr>
-                <th>BLOCK</th>
-                <th>TIMESTAMP</th>
-                <th>EVENT_TYPE</th>
-                <th>AGENT</th>
-                <th className="numeric">GEN</th>
-                <th className="numeric">ROUND</th>
-                <th>DATA</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEvents.map((event) => {
-                const key = `${event.block_number}-${event.timestamp}-${event.agent_id}`;
-                const expanded = expandedKey === key;
-                return (
-                  <Fragment key={key}>
-                    <tr
-                      className="ledger-row"
-                      onClick={() => setExpandedKey((current) => (current === key ? null : key))}
-                    >
-                      <td className="ledger-block">[BLOCK {event.block_number}]</td>
-                      <td>{event.timestamp}</td>
-                      <td>
-                        <span className={`ledger-pill ${EVENT_PILL_CLASS[event.event_type]}`}>{event.event_type}</span>
-                      </td>
-                      <td>{shortName(event.agent_id)}</td>
-                      <td className="numeric">{String(event.generation).padStart(2, "0")}</td>
-                      <td className="numeric">{String(event.round).padStart(2, "0")}</td>
-                      <td className="ledger-data-preview">{expanded ? "EXPANDED" : formatPayload(event.data).split("\n")[0]}</td>
-                    </tr>
-                    {expanded ? (
-                      <tr className="ledger-expanded-row">
-                        <td colSpan={7}>
-                          <pre className="ledger-json">{formatPayload(event.data)}</pre>
+          {filteredEvents.length ? (
+            <table className="table ledger-table">
+              <thead>
+                <tr>
+                  <th>BLOCK</th>
+                  <th>TIMESTAMP</th>
+                  <th>EVENT_TYPE</th>
+                  <th>AGENT</th>
+                  <th className="numeric">GEN</th>
+                  <th className="numeric">ROUND</th>
+                  <th>DATA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredEvents.map((event) => {
+                  const key = `${event.block_number}-${event.timestamp}-${event.agent_id}`;
+                  const expanded = expandedKey === key;
+                  return (
+                    <Fragment key={key}>
+                      <tr
+                        className="ledger-row"
+                        onClick={() => setExpandedKey((current) => (current === key ? null : key))}
+                      >
+                        <td className="ledger-block">[BLOCK {event.block_number}]</td>
+                        <td>{event.timestamp}</td>
+                        <td>
+                          <span className={`ledger-pill ${EVENT_PILL_CLASS[event.event_type]}`}>{event.event_type}</span>
                         </td>
+                        <td>{shortName(event.agent_id)}</td>
+                        <td className="numeric">{String(event.generation).padStart(2, "0")}</td>
+                        <td className="numeric">{String(event.round).padStart(2, "0")}</td>
+                        <td className="ledger-data-preview">{expanded ? "EXPANDED" : formatPayload(event.data).split("\n")[0]}</td>
                       </tr>
-                    ) : null}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+                      {expanded ? (
+                        <tr className="ledger-expanded-row">
+                          <td colSpan={7}>
+                            <pre className="ledger-json">{formatPayload(event.data)}</pre>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <EmptyState
+              title="NO_MATCHING_EVENTS"
+              subtitle="ADJUST_FILTERS_TO_VIEW_THE_LEDGER_STREAM"
+            />
+          )}
         </div>
       </section>
     </main>

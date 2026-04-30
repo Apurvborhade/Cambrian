@@ -12,17 +12,6 @@ import { SettingsPage } from "./pages/Settings";
 import { SwarmPage } from "./pages/Swarm";
 import { TournamentPage } from "./pages/Tournament";
 
-function PlaceholderPage({ title }: { title: string }) {
-  return (
-    <main className="page-shell">
-      <div className="page-placeholder-card">
-        <div className="page-placeholder-label">{title}</div>
-        <div className="page-placeholder-value">COMING_SOON</div>
-      </div>
-    </main>
-  );
-}
-
 function AppShell() {
   const location = useLocation();
   return (

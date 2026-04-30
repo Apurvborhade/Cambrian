@@ -2,6 +2,17 @@
   border: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   border-radius: 2px;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease,
+    transform 160ms ease;
+}
+
+.panel:hover {
+  border-color: var(--border-accent);
+}
+
+.panel:focus-within {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.14);
 }
 
 .panel-title {
@@ -1431,6 +1442,7 @@
 .button:hover {
   border-color: var(--accent-cyan);
   box-shadow: var(--glow-cyan);
+  transform: translateY(-1px);
 }
 
 .button-primary {
@@ -1439,4 +1451,154 @@
 
 .button-primary:hover {
   border-color: var(--accent-cyan);
+}
+
+.empty-state {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  text-align: center;
+  border: 1px dashed var(--border-accent);
+  background: linear-gradient(180deg, rgba(0, 255, 204, 0.03), transparent);
+  margin: 16px;
+}
+
+.empty-state-title {
+  color: var(--accent-cyan);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.empty-state-subtitle {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.page-placeholder-card {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.page-placeholder-card:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-1px);
+}
+
+.page-placeholder-value,
+.stat-card-value,
+.genome-title,
+.agent-title,
+.tournament-tooltip-title {
+  text-shadow: 0 0 0 rgba(0, 255, 204, 0);
+}
+
+@media (max-width: 1279px) {
+  body {
+    min-width: 100%;
+  }
+
+  .app-main {
+    margin-left: 0;
+    padding-left: 56px;
+  }
+
+  .status-bar {
+    padding-left: 68px;
+    gap: 12px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 28px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .page-header {
+    padding: 0 16px;
+  }
+
+  .page-shell {
+    padding: 16px;
+  }
+
+  .stat-grid,
+  .settings-summary-grid,
+  .generation-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout-two-column,
+  .swarm-layout,
+  .lineage-grid,
+  .tournament-content-grid,
+  .generation-split-grid,
+  .exec-log-layout,
+  .genome-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .lineage-canvas-shell,
+  .lineage-side-panel {
+    min-height: 560px;
+  }
+
+  .tournament-progress-shell {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ledger-filters-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ledger-filter-summary {
+    justify-content: flex-start;
+  }
+
+  .genome-picker-grid,
+  .generation-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .genome-hero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .generation-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar:hover {
+    width: var(--sidebar-collapsed);
+  }
+
+  .sidebar-label {
+    opacity: 0 !important;
+    transform: translateX(-6px) !important;
+  }
+
+  .tournament-grid,
+  .table {
+    min-width: 720px;
+  }
+
+  .lineage-controls,
+  .tournament-header-row,
+  .agent-detail-header,
+  .modal-header,
+  .generation-agent-card-top,
+  .exec-log-selector-top {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .page-header,
+  .status-bar {
+    font-size: 10px;
+  }
 }
