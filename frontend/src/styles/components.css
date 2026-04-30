@@ -1487,6 +1487,96 @@
   transform: translateY(-1px);
 }
 
+.landing-page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 68px);
+}
+
+.landing-shell {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  padding: 44px 40px;
+  border: 1px solid var(--border-primary);
+  background:
+    radial-gradient(circle at top, rgba(0, 255, 204, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(17, 17, 17, 0.9), rgba(13, 13, 13, 0.96));
+  position: relative;
+  overflow: hidden;
+}
+
+.landing-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.6;
+}
+
+.landing-kicker {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.landing-title {
+  margin: 18px 0 0;
+  display: grid;
+  gap: 6px;
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 0.95;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.landing-title span {
+  color: var(--accent-cyan);
+}
+
+.landing-copy {
+  max-width: 60ch;
+  margin: 18px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.8;
+  letter-spacing: 0.05em;
+}
+
+.landing-actions {
+  margin-top: 26px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.landing-strip {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.landing-chip {
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border-primary);
+  background: rgba(8, 8, 8, 0.82);
+  color: var(--text-primary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
 .page-placeholder-value,
 .stat-card-value,
 .genome-title,
@@ -1522,6 +1612,10 @@
 
   .page-shell {
     padding: 16px;
+  }
+
+  .landing-shell {
+    padding: 28px 20px;
   }
 
   .stat-grid,
@@ -1592,9 +1686,14 @@
   .agent-detail-header,
   .modal-header,
   .generation-agent-card-top,
-  .exec-log-selector-top {
+  .exec-log-selector-top,
+  .landing-actions {
     flex-direction: column;
     align-items: start;
+  }
+
+  .landing-strip {
+    grid-template-columns: 1fr;
   }
 
   .page-header,

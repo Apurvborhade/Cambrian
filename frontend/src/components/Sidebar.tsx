@@ -1,7 +1,8 @@
 import { NavLink } from "react-router-dom";
 
 const NAV_ITEMS = [
-  { icon: "⬡", label: "SWARM", to: "/" },
+  { icon: "◇", label: "HOME", to: "/" },
+  { icon: "⬡", label: "SWARM", to: "/swarm" },
   { icon: "◎", label: "LINEAGE", to: "/lineage" },
   { icon: "◈", label: "GENOME_LAB", to: "/genome" },
   { icon: "◭", label: "TOURNAMENT", to: "/tournament" },

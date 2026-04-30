@@ -3,6 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { PageHeader } from "./components/PageHeader";
 import { StatusBar } from "./components/StatusBar";
 import { mockTournamentState } from "./data/mockData";
+import { LandingPage } from "./pages/Landing";
 import { LineagePage } from "./pages/Lineage";
 import { GenomeLabPage } from "./pages/GenomeLab";
 import { LedgerPage } from "./pages/Ledger";
@@ -23,7 +24,8 @@ function AppShell() {
           tournament={mockTournamentState}
         />
         <Routes>
-          <Route path="/" element={<SwarmPage tournament={mockTournamentState} />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/swarm" element={<SwarmPage tournament={mockTournamentState} />} />
           <Route path="/lineage" element={<LineagePage />} />
           <Route path="/genome" element={<GenomeLabPage />} />
           <Route path="/tournament" element={<TournamentPage />} />
