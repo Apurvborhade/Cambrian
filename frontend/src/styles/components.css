@@ -997,6 +997,169 @@
   border-color: rgba(0, 255, 136, 0.28);
 }
 
+.generation-page {
+  display: grid;
+  gap: 12px;
+}
+
+.generation-tabs-panel,
+.generation-content-panel {
+  padding-bottom: 12px;
+}
+
+.generation-tabs {
+  padding: 14px 16px 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.generation-tab {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+.generation-tab-active,
+.generation-tab:hover {
+  border-color: var(--accent-cyan);
+  color: var(--text-primary);
+  box-shadow: var(--glow-cyan);
+}
+
+.generation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.generation-summary-card {
+  padding: 14px 16px;
+}
+
+.generation-summary-value {
+  margin-top: 10px;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.generation-summary-value.accent {
+  color: var(--accent-cyan);
+}
+
+.generation-card-grid {
+  padding: 0 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.generation-agent-card {
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.generation-agent-card-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.generation-agent-name {
+  color: var(--accent-cyan);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.generation-agent-sub,
+.generation-agent-meta {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.generation-risk-bar {
+  margin-top: 2px;
+}
+
+.generation-chip {
+  width: fit-content;
+}
+
+.generation-split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+}
+
+.crossover-panel,
+.gene-delta-panel {
+  padding-bottom: 12px;
+}
+
+.crossover-body,
+.gene-delta-table {
+  padding: 0 16px 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.crossover-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.crossover-symbol {
+  color: var(--accent-gold);
+  font-size: 18px;
+}
+
+.crossover-empty {
+  padding: 0 16px 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.gene-delta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.gene-delta-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.gene-delta-value {
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .table-shell {
   overflow: hidden;
 }
