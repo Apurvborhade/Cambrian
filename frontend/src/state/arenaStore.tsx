@@ -224,6 +224,18 @@ const buildGenomeHistory = (rows: TimelineRow[], genomeId: string) =>
     })
     .filter((value): value is number => value !== null);
 
+const loadArenaSnapshot = async (targetArenaId: string) => {
+  const [stateResult, agentsResult] = await Promise.allSettled([
+    backendApi.getArenaState(targetArenaId),
+    backendApi.getArenaAgents(targetArenaId),
+  ]);
+
+  const state = stateResult.status === "fulfilled" ? stateResult.value.state : null;
+  const agents = agentsResult.status === "fulfilled" ? agentsResult.value.agents : [];
+
+  return { state, agents };
+};
+
 export function ArenaProvider({ children }: { children: ReactNode }) {
   const [arenaId, setArenaIdState] = useState(() => {
     if (typeof window === "undefined") {
@@ -363,9 +375,9 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const details = await backendApi.getArena(arenaId);
-      setArenaState(details.state);
-      upsertGenomes(details.genomes);
+      const snapshot = await loadArenaSnapshot(arenaId);
+      setArenaState(snapshot.state);
+      upsertGenomes(snapshot.agents);
       setError(null);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : String(fetchError);
@@ -409,32 +421,56 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const details = await backendApi.getArena(arenaId);
+        const snapshot = await loadArenaSnapshot(arenaId);
         if (cancelled) {
           return;
         }
-        setArenaState(details.state);
-        upsertGenomes(details.genomes);
+
+        if (snapshot.state && snapshot.agents.length) {
+          setArenaState(snapshot.state);
+          upsertGenomes(snapshot.agents);
+          setError(null);
+          connectStream(arenaId);
+          return;
+        }
+      } catch {
+        // Fall through to arena creation.
+      }
+
+      try {
+        const created = await backendApi.createArena(arenaId, DEFAULT_ARENA_SIZE);
+        if (cancelled) {
+          return;
+        }
+        setArenaState(created.state);
+        upsertGenomes(created.agents);
+        setSelectedGenomeId((current) => current ?? created.agents[0]?.genome_id ?? null);
         setError(null);
         connectStream(arenaId);
-      } catch {
+      } catch (createError) {
         try {
-          const created = await backendApi.createArena(arenaId, DEFAULT_ARENA_SIZE);
+          const snapshot = await loadArenaSnapshot(arenaId);
           if (cancelled) {
             return;
           }
-          setArenaState(created.state);
-          upsertGenomes(created.agents);
-          setSelectedGenomeId((current) => current ?? created.agents[0]?.genome_id ?? null);
-          setError(null);
-          connectStream(arenaId);
-        } catch (createError) {
-          if (cancelled) {
+          if (snapshot.state && snapshot.agents.length) {
+            setArenaState(snapshot.state);
+            upsertGenomes(snapshot.agents);
+            setSelectedGenomeId((current) => current ?? snapshot.agents[0]?.genome_id ?? null);
+            setError(null);
+            connectStream(arenaId);
             return;
           }
           setError(createError instanceof Error ? createError.message : String(createError));
+        } catch (snapshotError) {
+          if (cancelled) {
+            return;
+          }
+          const message = snapshotError instanceof Error ? snapshotError.message : String(snapshotError);
+          setError(message);
         }
-      } finally {
+      }
+      finally {
         if (!cancelled) {
           setLoading(false);
         }
@@ -525,6 +561,19 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
   const currentGenome = useMemo(() => {
     return allGenomes.find((genome) => genome.genome_id === selectedGenomeId) ?? allGenomes[0] ?? null;
   }, [allGenomes, selectedGenomeId]);
+
+  useEffect(() => {
+    const hasGenomes = Object.keys(genomesById).length > 0;
+    if (!error && hasGenomes) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void refresh();
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [error, genomesById, refresh]);
 
   const tournament = useMemo<TournamentState>(() => {
     const genomes = currentGenomes.length ? currentGenomes : allGenomes;

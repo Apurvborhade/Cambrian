@@ -130,23 +130,21 @@ export function SwarmPage() {
               <div className="section-subtitle">DELTA_FROM_PARENT_AVERAGE</div>
             </div>
             <div className="detail-compact-grid">
-              {selectedAgent
-                ? computeMutationAdaptations(selectedAgent).map(([label, value, baseline]) => {
-                    const delta = value - baseline;
-                    const deltaClass =
-                      delta > 0 ? "delta-positive" : delta < 0 ? "delta-negative" : "delta-neutral";
-                    const sign = delta > 0 ? "+" : "";
-                    return (
-                      <div key={label} className="compact-mutation-row">
-                        <span className="compact-mutation-label">{label}</span>
-                        <span className={`compact-mutation-value ${deltaClass}`}>
-                          {value.toFixed(2)} <span className="delta-sep">::</span> {sign}
-                          {delta.toFixed(2)}
-                        </span>
-                      </div>
-                    );
-                  })
-                : null}
+              {computeMutationAdaptations(selectedAgent).map(([label, value, baseline]) => {
+                const delta = value - baseline;
+                const deltaClass =
+                  delta > 0 ? "delta-positive" : delta < 0 ? "delta-negative" : "delta-neutral";
+                const sign = delta > 0 ? "+" : "";
+                return (
+                  <div key={label} className="compact-mutation-row">
+                    <span className="compact-mutation-label">{label}</span>
+                    <span className={`compact-mutation-value ${deltaClass}`}>
+                      {value.toFixed(2)} <span className="delta-sep">::</span> {sign}
+                      {delta.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </article>
         </div>

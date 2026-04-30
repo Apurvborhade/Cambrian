@@ -119,6 +119,10 @@ export function LineagePage() {
     return () => resizeObserver.disconnect();
   }, []);
 
+  useEffect(() => {
+    setDraftArenaId(arenaId);
+  }, [arenaId]);
+
   const graph = useMemo(() => buildGraph(allGenomes), [allGenomes]);
   const hierarchy = useMemo(() => d3.hierarchy(graph.root), [graph.root]);
   const treeLayout = useMemo(() => d3.tree<GraphNode>().nodeSize([128, 150])(hierarchy), [hierarchy]);
@@ -169,10 +173,6 @@ export function LineagePage() {
     selection.call(zoom.transform as any, centered as any);
     setTransform(centered);
   }, [viewport.width]);
-
-  useEffect(() => {
-    setDraftArenaId(arenaId);
-  }, [arenaId]);
 
   useEffect(() => {
     if (selectedIds.length === 2) {
