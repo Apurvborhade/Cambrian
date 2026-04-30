@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useArenaStore } from "../state/arenaStore";
 
 const SERVICES = [
@@ -7,44 +8,27 @@ const SERVICES = [
   "AXL_NODE",
   "KEEPERHUB_MCP",
   "UNISWAP_API",
-];
+] as const;
 
-const ENV_KEYS = [
-  "ZERO_G_RPC_URL",
-  "ZERO_G_COMPUTE_ENDPOINT",
-  "ZERO_G_API_KEY",
-  "ZERO_G_STORAGE_ENDPOINT",
-  "ZERO_G_STORAGE_API_KEY",
-  "AXL_RPC_URL",
-  "AXL_API_KEY",
-  "KEEPERHUB_ENDPOINT",
-  "KEEPERHUB_API_KEY",
-  "UNISWAP_SUBGRAPH_URL",
-  "UNISWAP_ROUTER_ADDRESS",
-  "UNISWAP_FACTORY_ADDRESS",
-  "DATABASE_URL",
-  "REDIS_URL",
-  "MCP_SERVER_URL",
-  "KEEPER_PRIVATE_KEY",
-  "SYSTEM_BUILD_HASH",
-];
-
-function statusRow(label: string) {
+function statusRow(label: string, online: boolean, latency: number | null, lastPing: string) {
   return (
     <tr key={label}>
       <td>{label}</td>
       <td>
-        <span className="status-dot status-dot-offline" />
-        OFFLINE
+        <span className={`status-pill ${online ? "status-pill-evolved" : "status-pill-dead"}`}>
+          {online ? "ONLINE" : "OFFLINE"}
+        </span>
       </td>
-      <td className="numeric">-- ms</td>
-      <td>--</td>
+      <td className="numeric">{latency === null ? "-- ms" : `${latency} ms`}</td>
+      <td>{lastPing}</td>
     </tr>
   );
 }
 
 export function SettingsPage() {
-  const { backendHealthy, backendLatencyMs, arenaId } = useArenaStore();
+  const { backendHealthy, backendLatencyMs, arenaId, backendHealthy: connected } = useArenaStore();
+  const lastPing = useMemo(() => new Date().toISOString(), [backendHealthy, backendLatencyMs]);
+  const online = connected === true;
 
   return (
     <main className="page-shell settings-page">
@@ -81,7 +65,9 @@ export function SettingsPage() {
               <th>LAST_PING</th>
             </tr>
           </thead>
-          <tbody>{SERVICES.map(statusRow)}</tbody>
+          <tbody>
+            {SERVICES.map((service) => statusRow(service, online, backendLatencyMs, lastPing))}
+          </tbody>
         </table>
       </section>
 
@@ -103,15 +89,15 @@ export function SettingsPage() {
       <section className="panel settings-section">
         <div className="section-heading">
           <div className="panel-title">ENVIRONMENT_VARIABLES</div>
-          <div className="section-subtitle">NOT_SET_IN_FRONTEND_ONLY_MODE</div>
+          <div className="section-subtitle">BACKEND_ENV_SURFACE_NOT_EXPOSED</div>
         </div>
-        <div className="env-grid">
-          {ENV_KEYS.map((key) => (
-            <div key={key} className="env-row">
-              <span className="env-key">{key}</span>
-              <span className="status-pill status-pill-dead">[NOT_SET]</span>
-            </div>
-          ))}
+        <div className="settings-config-grid">
+          <div className="settings-config-row"><span>ZERO_G_RPC_URL</span><span>FROM_BACKEND_ENV</span></div>
+          <div className="settings-config-row"><span>ZERO_G_COMPUTE_ENDPOINT</span><span>FROM_BACKEND_ENV</span></div>
+          <div className="settings-config-row"><span>ZERO_G_API_KEY</span><span>FROM_BACKEND_ENV</span></div>
+          <div className="settings-config-row"><span>AXL_RPC_URL</span><span>FROM_BACKEND_ENV</span></div>
+          <div className="settings-config-row"><span>KEEPERHUB_ENDPOINT</span><span>FROM_BACKEND_ENV</span></div>
+          <div className="settings-config-row"><span>UNISWAP_ROUTER_ADDRESS</span><span>FROM_BACKEND_ENV</span></div>
         </div>
       </section>
 

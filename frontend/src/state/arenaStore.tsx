@@ -16,7 +16,7 @@ import {
   type BackendGenome,
   type BackendToolWeights,
 } from "../data/backendApi";
-import type { Genome, GenerationEvent, TournamentState } from "../data/mockData";
+import type { Genome, GenerationEvent, TournamentState } from "../data/domain";
 
 export type TimelineRow = {
   id: string;
@@ -62,27 +62,7 @@ const ArenaContext = createContext<ArenaContextValue | null>(null);
 
 const cloneWeights = (weights: BackendToolWeights): BackendToolWeights => ({ ...weights });
 
-const emptyWeights: BackendToolWeights = {
-  price_momentum: 0,
-  volume_signal: 0,
-  liquidity_depth: 0,
-  volatility_index: 0,
-  block_timing: 0,
-};
-
 const shortHash = (value: string) => value.replace(/^0x/, "").slice(-6).toUpperCase();
-
-const initialFitnessHistory = (genome: BackendGenome, history: number[]) => {
-  if (history.length > 0) {
-    return history;
-  }
-
-  if (genome.fitness > 0) {
-    return [Number(genome.fitness.toFixed(2))];
-  }
-
-  return [];
-};
 
 const estimateStatus = (genome: BackendGenome, selectedGenomeId: string | null, burnedIds: Set<string>): Genome["status"] => {
   if (burnedIds.has(genome.genome_id)) {
@@ -122,7 +102,7 @@ const backendGenomeToUi = (
   nft_address: genome.nft_address,
   status: estimateStatus(genome, options.selectedGenomeId, options.burnedIds),
   fitness_score: Number(genome.fitness.toFixed(2)),
-  fitness_history: initialFitnessHistory(genome, options.history),
+  fitness_history: options.history,
 });
 
 const createTimelineRow = (

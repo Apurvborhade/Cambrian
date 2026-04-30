@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 import { FitnessSparkline } from "./FitnessSparkline";
 import { StatusPill } from "./StatusPill";
 
@@ -106,7 +106,7 @@ export function AgentDetailPanel({
               </Link>
             ))
           ) : (
-            <span className="chip chip-muted">GENESIS - NO_PARENTS</span>
+            <span className="chip chip-muted">GENESIS__NO_PARENTS</span>
           )}
         </div>
       </div>

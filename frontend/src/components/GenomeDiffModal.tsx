@@ -1,4 +1,4 @@
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 
 type DiffToken = {
   text: string;

@@ -4,7 +4,7 @@ import { AgentDetailPanel } from "../components/AgentDetailPanel";
 import { GenomeDiffModal } from "../components/GenomeDiffModal";
 import { EmptyState } from "../components/EmptyState";
 import { useArenaStore } from "../state/arenaStore";
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 
 type GraphNode = {
   genome: Genome;

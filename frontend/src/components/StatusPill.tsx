@@ -1,4 +1,4 @@
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 
 const STATUS_CLASS: Record<Genome["status"], string> = {
   ALIVE: "status-pill-alive",

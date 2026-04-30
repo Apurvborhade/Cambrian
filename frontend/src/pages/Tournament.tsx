@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StatusPill } from "../components/StatusPill";
 import { useArenaStore } from "../state/arenaStore";
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 
 type RoundCell = {
   agent: Genome;

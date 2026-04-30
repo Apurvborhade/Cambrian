@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { AgentDetailPanel } from "../components/AgentDetailPanel";
 import { StatusPill } from "../components/StatusPill";
 import { useArenaStore } from "../state/arenaStore";
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 
 function shortName(genomeId: string) {
   const raw = genomeId.replace(/^0x/, "");
@@ -17,8 +17,19 @@ function genomeRef(genome: Genome) {
   return `#241-${suffix}`;
 }
 
-function computeMutationAdaptations(genome: Genome) {
-  const parentBaseline = genome.parent_ids.length ? [0.65, 0.6, 0.45, 0.4, 0.45] : [0.5, 0.5, 0.5, 0.5, 0.5];
+function computeMutationAdaptations(genome: Genome, allAgents: Genome[]) {
+  const parents = genome.parent_ids
+    .map((parentId) => allAgents.find((agent) => agent.genome_id === parentId))
+    .filter((parent): parent is Genome => Boolean(parent));
+  const parentBaseline = parents.length
+    ? [
+        parents.reduce((sum, parent) => sum + parent.tool_weights.price_momentum, 0) / parents.length,
+        parents.reduce((sum, parent) => sum + parent.tool_weights.volume_signal, 0) / parents.length,
+        parents.reduce((sum, parent) => sum + parent.tool_weights.liquidity_depth, 0) / parents.length,
+        parents.reduce((sum, parent) => sum + parent.tool_weights.volatility_index, 0) / parents.length,
+        parents.reduce((sum, parent) => sum + parent.tool_weights.block_timing, 0) / parents.length,
+      ]
+    : [0.5, 0.5, 0.5, 0.5, 0.5];
   return [
     ["PRICE_MOMENTUM", genome.tool_weights.price_momentum, parentBaseline[0]],
     ["VOLUME_SIGNAL", genome.tool_weights.volume_signal, parentBaseline[1]],
@@ -130,7 +141,7 @@ export function SwarmPage() {
               <div className="section-subtitle">DELTA_FROM_PARENT_AVERAGE</div>
             </div>
             <div className="detail-compact-grid">
-              {computeMutationAdaptations(selectedAgent).map(([label, value, baseline]) => {
+              {computeMutationAdaptations(selectedAgent, tournament.agents).map(([label, value, baseline]) => {
                 const delta = value - baseline;
                 const deltaClass =
                   delta > 0 ? "delta-positive" : delta < 0 ? "delta-negative" : "delta-neutral";

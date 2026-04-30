@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import { StatusPill } from "../components/StatusPill";
 import { useArenaStore } from "../state/arenaStore";
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 
 function shortName(genomeId: string) {
   const raw = genomeId.replace(/^0x/, "");

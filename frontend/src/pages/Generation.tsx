@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useArenaStore } from "../state/arenaStore";
 import { StatusPill } from "../components/StatusPill";
-import type { Genome } from "../data/mockData";
+import type { Genome } from "../data/domain";
 
 type GeneRow = {
   label: string;

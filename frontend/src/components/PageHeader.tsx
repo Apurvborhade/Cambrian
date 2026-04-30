@@ -1,4 +1,4 @@
-import type { TournamentState } from "../data/mockData";
+import type { TournamentState } from "../data/domain";
 
 function pad(value: number) {
   return value.toString().padStart(2, "0");
