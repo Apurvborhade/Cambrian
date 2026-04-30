@@ -15,9 +15,10 @@ import { TournamentPage } from "./pages/Tournament";
 
 function AppShell() {
   const location = useLocation();
+  const isLanding = location.pathname === "/";
   return (
-    <div className="app-shell">
-      <Sidebar />
+    <div className={`app-shell${isLanding ? " app-shell-landing" : ""}`}>
+      {!isLanding ? <Sidebar /> : null}
       <div className="app-main">
         <PageHeader
           route={location.pathname}
@@ -36,7 +37,7 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
-      <StatusBar tournament={mockTournamentState} />
+      {!isLanding ? <StatusBar tournament={mockTournamentState} /> : null}
     </div>
   );
 }
