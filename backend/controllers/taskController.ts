@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { taskService } from "../services/taskService";
+import { axlBroadcaster } from "../../integrations/axl/broadcaster";
 
 const parsePositiveInteger = (value: unknown, fallback: number): number => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
@@ -58,7 +59,10 @@ export const createTaskHandler = async (request: Request, response: Response): P
       context: buildTaskContext(request.body?.context)
     });
 
-    response.status(201).json(task);
+    // Broadcast the task via AXL (publish-once → agents subscribe)
+    const published = await axlBroadcaster.broadcastTask(task);
+
+    response.status(201).json(published);
   } catch (error) {
     sendError(response, error);
   }

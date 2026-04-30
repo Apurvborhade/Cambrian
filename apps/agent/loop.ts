@@ -1,4 +1,4 @@
-import { createAgentTask, type CreateAgentTaskOptions } from "../../core/types/task";
+import { createAgentTask, type CreateAgentTaskOptions, type AgentTask } from "../../core/types/task";
 import type { AgentGenome } from "../../core/types/genome";
 import { createSeedGenomes } from "../../core/genome/generator";
 import { ZeroGStorageAdapter } from "../../integrations/0g/storage";
@@ -13,6 +13,8 @@ import { loadAgentMemory, persistAgentMemory } from "./memory";
 import { runReasoning } from "./reasoning";
 import { finalizeAction } from "./action";
 import { calculateFitness } from "../../core/evolution/fitness";
+import { axlSubscriber } from "../../integrations/axl/subscriber";
+import { axlBroadcaster } from "../../integrations/axl/broadcaster";
 
 const storage = new ZeroGStorageAdapter();
 
@@ -137,9 +139,21 @@ export const runAgentLoop = async (
   console.log("Ensuring Genome")
   const genome = providedGenome ?? await ensureGenome(genomeId);
   console.log("Genome", genome)
-  console.log("Create Task")
-  const task = createAgentTask(options.task ?? createDefaultTask());
-  console.log("Task Created")
+  let task: AgentTask;
+
+  if (options.task) {
+    task = createAgentTask(options.task);
+    console.log("Using provided task", task.id ?? "(no-id)");
+  } else {
+    console.log("Waiting for task from AXL (darwin/task)...");
+    task = await new Promise<AgentTask>((resolve) => {
+      axlSubscriber.subscribe("darwin/task", (t) => {
+        console.log("Received task from AXL", t.id ?? "(no-id)");
+        resolve(t);
+      });
+    });
+    console.log("Task received from AXL", task.id ?? "(no-id)");
+  }
 
   const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());
 
@@ -175,6 +189,23 @@ export const runAgentLoop = async (
       };
 
   await persistAgentMemory(storage, genome, { ...memoryRecord, fitness });
+
+  const result = {
+    id: typeof task.id === "string" ? `${task.id}-${genomeId}` : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    timestamp: new Date().toISOString(),
+    genomeId,
+    taskId: task.id,
+    taskRound: task.round,
+    action,
+    receipt,
+    fitness
+  };
+
+  try {
+    await axlBroadcaster.publishResult(result);
+  } catch (err) {
+    console.warn("Failed to publish result to AXL", err);
+  }
 
   return {
     genomeId,

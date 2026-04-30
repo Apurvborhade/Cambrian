@@ -1,4 +1,4 @@
-import { AxlBroadcaster } from "../../integrations/axl/broadcaster";
+import { axlBroadcaster } from "../../integrations/axl/broadcaster";
 import { createAgentTask, type AgentTask } from "../../core/types/task";
 
 export const broadcastTask = async (): Promise<AgentTask> => {
@@ -10,5 +10,5 @@ export const broadcastTask = async (): Promise<AgentTask> => {
     }
   });
 
-  return new AxlBroadcaster().broadcast(task);
+  return await axlBroadcaster.broadcastTask(task);
 };
