@@ -84,7 +84,7 @@ export interface BackendArenaEvent<Type extends BackendArenaEventType = BackendA
   data: unknown;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "http://localhost:3001";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "/api";
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -105,23 +105,23 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const backendApi = {
   baseUrl: API_BASE_URL,
-  health: () => requestJson<{ ok: boolean }>("/api/health"),
+  health: () => requestJson<{ ok: boolean }>("/health"),
   createArena: (arenaId: string, size: number) =>
-    requestJson<BackendArenaCreateResult>("/api/arenas", {
+    requestJson<BackendArenaCreateResult>("/arenas", {
       method: "POST",
       body: JSON.stringify({ arenaId, size }),
     }),
-  getArena: (arenaId: string) => requestJson<BackendArenaDetails>(`/api/arenas/${encodeURIComponent(arenaId)}`),
+  getArena: (arenaId: string) => requestJson<BackendArenaDetails>(`/arenas/${encodeURIComponent(arenaId)}`),
   getArenaState: (arenaId: string) =>
-    requestJson<{ arenaId: string; state: BackendArenaStateView }>(`/api/arenas/${encodeURIComponent(arenaId)}/state`),
+    requestJson<{ arenaId: string; state: BackendArenaStateView }>(`/arenas/${encodeURIComponent(arenaId)}/state`),
   getArenaAgents: (arenaId: string) =>
-    requestJson<{ arenaId: string; agents: BackendGenome[] }>(`/api/arenas/${encodeURIComponent(arenaId)}/agents`),
+    requestJson<{ arenaId: string; agents: BackendGenome[] }>(`/arenas/${encodeURIComponent(arenaId)}/agents`),
   runArenaRound: (arenaId: string) =>
-    requestJson<BackendArenaRunRoundResult>(`/api/arenas/${encodeURIComponent(arenaId)}/rounds`, {
+    requestJson<BackendArenaRunRoundResult>(`/arenas/${encodeURIComponent(arenaId)}/rounds`, {
       method: "POST",
     }),
   runArena: (arenaId: string, generations: number) =>
-    requestJson<BackendArenaRunResult>(`/api/arenas/${encodeURIComponent(arenaId)}/run`, {
+    requestJson<BackendArenaRunResult>(`/arenas/${encodeURIComponent(arenaId)}/run`, {
       method: "POST",
       body: JSON.stringify({ generations }),
     }),
@@ -130,7 +130,7 @@ export const backendApi = {
     onEvent: (event: BackendArenaEvent | { type: "snapshot"; arenaId: string; timestamp: string; data: BackendArenaSnapshotPayload }) => void,
     onError?: (error: Event) => void,
   ) => {
-    const source = new EventSource(`${API_BASE_URL}/api/arenas/${encodeURIComponent(arenaId)}/events`);
+    const source = new EventSource(`${API_BASE_URL}/arenas/${encodeURIComponent(arenaId)}/events`);
 
     const snapshotHandler = (event: MessageEvent) => {
       const data = JSON.parse(event.data) as BackendArenaSnapshotPayload;

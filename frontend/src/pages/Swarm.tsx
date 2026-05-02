@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { AgentDetailPanel } from "../components/AgentDetailPanel";
+import { EmptyState } from "../components/EmptyState";
 import { StatusPill } from "../components/StatusPill";
 import { useArenaStore } from "../state/arenaStore";
 import type { Genome } from "../data/domain";
@@ -17,7 +18,11 @@ function genomeRef(genome: Genome) {
   return `#241-${suffix}`;
 }
 
-function computeMutationAdaptations(genome: Genome, allAgents: Genome[]) {
+function computeMutationAdaptations(genome: Genome | null, allAgents: Genome[]) {
+  if (!genome) {
+    return [] as const;
+  }
+
   const parents = genome.parent_ids
     .map((parentId) => allAgents.find((agent) => agent.genome_id === parentId))
     .filter((parent): parent is Genome => Boolean(parent));
@@ -44,7 +49,7 @@ function statValue(value: string) {
 }
 
 export function SwarmPage() {
-  const { tournament, selectedGenomeId, setSelectedGenomeId } = useArenaStore();
+  const { tournament, selectedGenomeId, setSelectedGenomeId, loading, error } = useArenaStore();
   const selectedId = selectedGenomeId;
 
   const selectedAgent = useMemo(
@@ -66,6 +71,30 @@ export function SwarmPage() {
       setSelectedGenomeId(selectedAgent.genome_id);
     }
   }, [selectedAgent, selectedGenomeId, setSelectedGenomeId]);
+
+  if (loading && !tournament.agents.length) {
+    return (
+      <main className="page-shell">
+        <EmptyState title="LOADING_BACKEND_DATA" subtitle="WAITING_FOR_REAL_ARENA_DATA_FROM_BACKEND" />
+      </main>
+    );
+  }
+
+  if (error && !tournament.agents.length) {
+    return (
+      <main className="page-shell">
+        <EmptyState title="BACKEND_ERROR" subtitle={error} />
+      </main>
+    );
+  }
+
+  if (!tournament.agents.length) {
+    return (
+      <main className="page-shell">
+        <EmptyState title="NO_GENOMES_AVAILABLE" subtitle="CREATE_AN_ARENA_TO_BEGIN_VISUALIZATION" />
+      </main>
+    );
+  }
 
   return (
     <main className="page-shell">
