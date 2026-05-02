@@ -216,6 +216,14 @@ const loadArenaSnapshot = async (targetArenaId: string) => {
   return { state, agents };
 };
 
+const emptyArenaSnapshot = () => ({
+  arenaState: null as BackendArenaSnapshotPayload["state"] | null,
+  genomesById: {} as Record<string, BackendGenome>,
+  selectedGenomeId: null as string | null,
+  timelineRows: [] as TimelineRow[],
+  burnedIds: new Set<string>(),
+});
+
 export function ArenaProvider({ children }: { children: ReactNode }) {
   const [arenaId, setArenaIdState] = useState(() => {
     if (typeof window === "undefined") {
@@ -246,6 +254,29 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
   const closeStream = useCallback(() => {
     streamRef.current?.close();
     streamRef.current = null;
+  }, []);
+
+  const applySnapshot = useCallback((snapshot: { state: BackendArenaSnapshotPayload["state"] | null; agents: BackendGenome[] }) => {
+    if (!snapshot.state || !snapshot.agents.length) {
+      const empty = emptyArenaSnapshot();
+      setArenaState(empty.arenaState);
+      setGenomesById(empty.genomesById);
+      setSelectedGenomeId(empty.selectedGenomeId);
+      setTimelineRows(empty.timelineRows);
+      setBurnedIds(empty.burnedIds);
+      return;
+    }
+
+    setArenaState(snapshot.state);
+    setGenomesById(
+      snapshot.agents.reduce<Record<string, BackendGenome>>((next, genome) => {
+        next[genome.genome_id] = genome;
+        return next;
+      }, {}),
+    );
+    setSelectedGenomeId(snapshot.agents[0]?.genome_id ?? null);
+    setTimelineRows([]);
+    setBurnedIds(new Set());
   }, []);
 
   const upsertGenomes = useCallback((genomes: BackendGenome[]) => {
@@ -356,8 +387,7 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
 
     try {
       const snapshot = await loadArenaSnapshot(arenaId);
-      setArenaState(snapshot.state);
-      upsertGenomes(snapshot.agents);
+      applySnapshot(snapshot);
       setError(null);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : String(fetchError);
@@ -365,7 +395,7 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [arenaId, upsertGenomes]);
+  }, [arenaId, applySnapshot]);
 
   const connectStream = useCallback(
     (nextArenaId: string) => {
@@ -407,48 +437,19 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
         }
 
         if (snapshot.state && snapshot.agents.length) {
-          setArenaState(snapshot.state);
-          upsertGenomes(snapshot.agents);
+          applySnapshot(snapshot);
           setError(null);
           connectStream(arenaId);
           return;
         }
-      } catch {
-        // Fall through to arena creation.
-      }
-
-      try {
-        const created = await backendApi.createArena(arenaId, DEFAULT_ARENA_SIZE);
+        applySnapshot(snapshot);
+        setError(null);
+      } catch (fetchError) {
         if (cancelled) {
           return;
         }
-        setArenaState(created.state);
-        upsertGenomes(created.agents);
-        setSelectedGenomeId((current) => current ?? created.agents[0]?.genome_id ?? null);
-        setError(null);
-        connectStream(arenaId);
-      } catch (createError) {
-        try {
-          const snapshot = await loadArenaSnapshot(arenaId);
-          if (cancelled) {
-            return;
-          }
-          if (snapshot.state && snapshot.agents.length) {
-            setArenaState(snapshot.state);
-            upsertGenomes(snapshot.agents);
-            setSelectedGenomeId((current) => current ?? snapshot.agents[0]?.genome_id ?? null);
-            setError(null);
-            connectStream(arenaId);
-            return;
-          }
-          setError(createError instanceof Error ? createError.message : String(createError));
-        } catch (snapshotError) {
-          if (cancelled) {
-            return;
-          }
-          const message = snapshotError instanceof Error ? snapshotError.message : String(snapshotError);
-          setError(message);
-        }
+        const message = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        setError(message);
       }
       finally {
         if (!cancelled) {
@@ -466,7 +467,7 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       closeStream();
     };
-  }, [arenaId, closeStream, connectStream, upsertGenomes]);
+  }, [arenaId, applySnapshot, closeStream, connectStream]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -479,19 +480,21 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       try {
         const result = await backendApi.createArena(nextArenaId, size);
-        persistArenaId(nextArenaId);
-        setArenaState(result.state);
-        upsertGenomes(result.agents);
-        setSelectedGenomeId(result.agents[0]?.genome_id ?? null);
-        setError(null);
-        connectStream(nextArenaId);
+        if (result.state && result.agents.length) {
+          persistArenaId(nextArenaId);
+          applySnapshot({ state: result.state, agents: result.agents });
+          setError(null);
+          connectStream(nextArenaId);
+          return;
+        }
+        throw new Error("Backend createArena returned an empty arena.");
       } catch (createError) {
         setError(createError instanceof Error ? createError.message : String(createError));
       } finally {
         setLoading(false);
       }
     },
-    [arenaId, connectStream, persistArenaId, upsertGenomes],
+    [arenaId, applySnapshot, connectStream, persistArenaId],
   );
 
   const runArena = useCallback(

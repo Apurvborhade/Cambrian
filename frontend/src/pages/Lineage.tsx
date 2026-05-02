@@ -214,19 +214,7 @@ export function LineagePage() {
     await runArena(Math.max(1, draftRunGenerations));
   };
 
-  if (!allGenomes.length && !loading) {
-    return (
-      <main className="page-shell lineage-page">
-        <section className="panel lineage-controls">
-          <div className="section-heading">
-            <div className="panel-title">LINEAGE_GRAPH</div>
-            <div className="section-subtitle">BACKEND_DATA_PENDING</div>
-          </div>
-        </section>
-        <EmptyState title="NO_GENOMES_AVAILABLE" subtitle="CREATE_AN_ARENA_TO_BEGIN_VISUALIZATION" />
-      </main>
-    );
-  }
+  const hasGenomes = allGenomes.length > 0;
 
   return (
     <main className="page-shell lineage-page">
@@ -289,87 +277,103 @@ export function LineagePage() {
 
       <section className="lineage-grid">
         <article className="panel lineage-canvas-shell">
-          <div className="lineage-canvas-pattern" />
-          <div className="lineage-axis">
-            {Array.from(generationY.entries()).map(([generation, y]) => (
-              <div
-                key={generation}
-                className="lineage-axis-label"
-                style={{ top: `${transform.applyY(y) - 10}px` }}
-              >
-                GEN_{String(generation).padStart(2, "0")}
-              </div>
-            ))}
-          </div>
-
-          <svg ref={svgRef} className="lineage-svg" width="100%" height={viewport.height} role="img" aria-label="LINEAGE GRAPH">
-            <defs>
-              <marker id="lineage-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                <path d="M0,0 L8,4 L0,8 z" fill={arrowColor} />
-              </marker>
-            </defs>
-            <g transform={transform.toString()}>
-              {primaryEdges.map((link, index) => (
-                <path
-                  key={`${link.source.data.genome.genome_id}-${link.target.data.genome.genome_id}-${index}`}
-                  className="lineage-edge"
-                  d={curvePath({ x: link.source.x, y: link.source.y }, { x: link.target.x, y: link.target.y })}
-                  style={{
-                    stroke: arrowColor,
-                    strokeOpacity: Math.max(0.16, 0.28 - link.source.data.genome.generation * 0.04),
-                  }}
-                  markerEnd="url(#lineage-arrow)"
-                />
-              ))}
-              {additionalEdges.map((edge) => (
-                <path
-                  key={edge.key}
-                  className="lineage-edge lineage-edge-secondary"
-                  d={curvePath({ x: edge.source.x, y: edge.source.y }, { x: edge.target.x, y: edge.target.y })}
-                  style={{
-                    stroke: "rgba(139,92,246,0.22)",
-                  }}
-                  markerEnd="url(#lineage-arrow)"
-                />
-              ))}
-
-              {nodesOnly.map((node) => {
-                const genome = node.data.genome;
-                const selected = selectedIds.includes(genome.genome_id);
-                const hidden = genome.status === "DEAD" && !showDead;
-                if (hidden) return null;
-
-                const radius = radiusScale(genome.fitness_score);
-                return (
-                  <g
-                    key={genome.genome_id}
-                    className={`lineage-node lineage-node-${genome.status.toLowerCase()}${selected ? " lineage-node-selected" : ""}`}
-                    transform={`translate(${node.x},${node.y})`}
-                    onClick={(event) => handleNodeClick(genome.genome_id, event.shiftKey)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        handleNodeClick(genome.genome_id, event.shiftKey);
-                      }
-                    }}
+          {hasGenomes ? (
+            <>
+              <div className="lineage-canvas-pattern" />
+              <div className="lineage-axis">
+                {Array.from(generationY.entries()).map(([generation, y]) => (
+                  <div
+                    key={generation}
+                    className="lineage-axis-label"
+                    style={{ top: `${transform.applyY(y) - 10}px` }}
                   >
-                    {selected ? <circle className="lineage-node-ring" r={radius + 8} /> : null}
-                    <circle className="lineage-node-core" r={radius} />
-                    {genome.status === "DEAD" ? <text className="lineage-node-cross" y={4}>x</text> : null}
-                    <text className="lineage-node-label" y={radius + 20}>
-                      {shortName(genome.genome_id)}
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          </svg>
+                    GEN_{String(generation).padStart(2, "0")}
+                  </div>
+                ))}
+              </div>
+
+              <svg ref={svgRef} className="lineage-svg" width="100%" height={viewport.height} role="img" aria-label="LINEAGE GRAPH">
+                <defs>
+                  <marker id="lineage-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                    <path d="M0,0 L8,4 L0,8 z" fill={arrowColor} />
+                  </marker>
+                </defs>
+                <g transform={transform.toString()}>
+                  {primaryEdges.map((link, index) => (
+                    <path
+                      key={`${link.source.data.genome.genome_id}-${link.target.data.genome.genome_id}-${index}`}
+                      className="lineage-edge"
+                      d={curvePath({ x: link.source.x, y: link.source.y }, { x: link.target.x, y: link.target.y })}
+                      style={{
+                        stroke: arrowColor,
+                        strokeOpacity: Math.max(0.16, 0.28 - link.source.data.genome.generation * 0.04),
+                      }}
+                      markerEnd="url(#lineage-arrow)"
+                    />
+                  ))}
+                  {additionalEdges.map((edge) => (
+                    <path
+                      key={edge.key}
+                      className="lineage-edge lineage-edge-secondary"
+                      d={curvePath({ x: edge.source.x, y: edge.source.y }, { x: edge.target.x, y: edge.target.y })}
+                      style={{
+                        stroke: "rgba(139,92,246,0.22)",
+                      }}
+                      markerEnd="url(#lineage-arrow)"
+                    />
+                  ))}
+
+                  {nodesOnly.map((node) => {
+                    const genome = node.data.genome;
+                    const selected = selectedIds.includes(genome.genome_id);
+                    const hidden = genome.status === "DEAD" && !showDead;
+                    if (hidden) return null;
+
+                    const radius = radiusScale(genome.fitness_score);
+                    return (
+                      <g
+                        key={genome.genome_id}
+                        className={`lineage-node lineage-node-${genome.status.toLowerCase()}${selected ? " lineage-node-selected" : ""}`}
+                        transform={`translate(${node.x},${node.y})`}
+                        onClick={(event) => handleNodeClick(genome.genome_id, event.shiftKey)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleNodeClick(genome.genome_id, event.shiftKey);
+                          }
+                        }}
+                      >
+                        {selected ? <circle className="lineage-node-ring" r={radius + 8} /> : null}
+                        <circle className="lineage-node-core" r={radius} />
+                        {genome.status === "DEAD" ? <text className="lineage-node-cross" y={4}>x</text> : null}
+                        <text className="lineage-node-label" y={radius + 20}>
+                          {shortName(genome.genome_id)}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </g>
+              </svg>
+            </>
+          ) : (
+            <EmptyState
+              title={loading ? "LOADING_BACKEND_DATA" : "NO_GENOMES_AVAILABLE"}
+              subtitle={loading ? "WAITING_FOR_REAL_ARENA_DATA_FROM_BACKEND" : "CREATE_AN_ARENA_TO_BEGIN_VISUALIZATION"}
+            />
+          )}
         </article>
 
         <aside className="lineage-side-panel">
-          {selectedAgent ? <AgentDetailPanel genome={selectedAgent} allAgents={allGenomes} readOnly /> : null}
+          {selectedAgent ? (
+            <AgentDetailPanel genome={selectedAgent} allAgents={allGenomes} readOnly />
+          ) : (
+            <EmptyState
+              title={error ? "BACKEND_ERROR" : "ARENA_EMPTY"}
+              subtitle={error ?? "CREATE_AN_ARENA_TO_BEGIN_INSPECTION"}
+            />
+          )}
         </aside>
       </section>
 
