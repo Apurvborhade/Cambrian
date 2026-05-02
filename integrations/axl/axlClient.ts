@@ -2,6 +2,14 @@ import { setTimeout as delay } from "timers/promises";
 
 type Handler = (msg: any) => void;
 
+interface SubscriptionEntry {
+  ws: any | null;
+  handlers: Set<Handler>;
+  backoff: number;
+  reconnecting: boolean;
+  closed: boolean;
+}
+
 const BROADCAST_URL = process.env.AXL_BROADCAST_URL || "http://localhost:8080/broadcast";
 const WS_BASE = process.env.AXL_WS_BASE || "ws://localhost:8080/subscribe";
 
@@ -20,15 +28,7 @@ function getWebSocketConstructor(): any {
 }
 
 export class AXLClient {
-  private connections = new Map<
-    string,
-    {
-      ws: any | null;
-      handlers: Set<Handler>;
-      backoff: number;
-      reconnecting: boolean;
-    }
-  >();
+  private connections = new Map<string, SubscriptionEntry>();
 
   public async publish(topic: string, message: any): Promise<void> {
     const payload = { topic, message };
@@ -55,15 +55,31 @@ export class AXLClient {
   public subscribe(topic: string, handler: Handler): void {
     let entry = this.connections.get(topic);
     if (!entry) {
-      entry = { ws: null, handlers: new Set<Handler>(), backoff: 1000, reconnecting: false };
+      entry = { ws: null, handlers: new Set<Handler>(), backoff: 1000, reconnecting: false, closed: false };
       this.connections.set(topic, entry);
       this.connect(topic, entry).catch((err) => console.error("AXL connect failed", err));
     }
 
+    entry.closed = false;
     entry.handlers.add(handler);
   }
 
-  private async connect(topic: string, entry: { ws: any | null; handlers: Set<Handler>; backoff: number; reconnecting: boolean }) {
+  public closeAll(): void {
+    for (const entry of this.connections.values()) {
+      entry.handlers.clear();
+      try {
+        entry.ws?.close?.();
+      } catch {
+        // ignore close errors during shutdown
+      }
+      entry.ws = null;
+      entry.closed = true;
+      entry.reconnecting = false;
+      entry.backoff = 1000;
+    }
+  }
+
+  private async connect(topic: string, entry: SubscriptionEntry) {
     const WebSocketCtor = getWebSocketConstructor();
     const url = `${WS_BASE}/${encodeURIComponent(topic)}`;
 
@@ -114,7 +130,8 @@ export class AXLClient {
     }
   }
 
-  private async scheduleReconnect(topic: string, entry: { ws: any | null; handlers: Set<Handler>; backoff: number; reconnecting: boolean }) {
+  private async scheduleReconnect(topic: string, entry: SubscriptionEntry) {
+    if (entry.closed) return;
     if (entry.reconnecting) return;
     entry.reconnecting = true;
     const waitMs = entry.backoff;

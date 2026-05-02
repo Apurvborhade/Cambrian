@@ -6,13 +6,14 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "test:axl": "npm run build && node dist/scripts/testAxlIntegration.js",
     "start:backend": "npm run build && node dist/backend/server.js",
     "seed:population": "npm run build && node dist/scripts/seedPopulation.js",
     "spawn:agents": "npm run build && node dist/scripts/spawnAgents.js",
     "run:generation": "npm run build && node dist/scripts/runGeneration.js",
     "start:arena": "npm run build && node dist/scripts/startArena.js",
     "cleanup": "npm run build && node dist/scripts/cleanup.js",
-    "test": "npm run check"
+    "test": "npm run check && npm run test:axl"
   },
   "repository": {
     "type": "git",
@@ -30,6 +31,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.4",
     "@types/node": "^25.6.0",
+    "@types/ws": "^8.18.1",
     "typescript": "^6.0.3"
   },
   "dependencies": {
