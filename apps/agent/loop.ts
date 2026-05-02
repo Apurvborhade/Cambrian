@@ -15,6 +15,7 @@ import { finalizeAction } from "./action";
 import { calculateFitness } from "../../core/evolution/fitness";
 import { axlSubscriber } from "../../integrations/axl/subscriber";
 import { axlBroadcaster } from "../../integrations/axl/broadcaster";
+import { axlClient } from "../../integrations/axl/axlClient";
 
 const storage = new ZeroGStorageAdapter();
 
@@ -59,19 +60,25 @@ const mintGenomeIfEnabled = async (seed: AgentGenome): Promise<string> => {
     return seed.nft_address;
   }
 
-  const result = await onchain.mint({
-    to: mintRecipient,
-    genomeId: seed.genome_id,
-    parentA: 0n,
-    parentB: 0n
-  });
+  try {
+    const result = await onchain.mint({
+      to: mintRecipient,
+      genomeId: seed.genome_id,
+      parentA: 0n,
+      parentB: 0n
+    });
 
-  if (result.tokenId === null) {
+    if (result.tokenId === null) {
+      return seed.nft_address;
+    }
+
+    const contractAddress = env.inftContractAddress?.trim();
+    return contractAddress ? `${contractAddress}:${result.tokenId.toString()}` : seed.nft_address;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`INFT mint failed for ${seed.genome_id}, continuing without NFT mint: ${message}`);
     return seed.nft_address;
   }
-
-  const contractAddress = env.inftContractAddress?.trim();
-  return contractAddress ? `${contractAddress}:${result.tokenId.toString()}` : seed.nft_address;
 };
 
 const ensureGenome = async (genomeId: string) => {
@@ -140,14 +147,30 @@ export const runAgentLoop = async (
   const genome = providedGenome ?? await ensureGenome(genomeId);
   console.log("Genome", genome)
   let task: AgentTask;
+  let senderPeerId: string | undefined;
+  let ourPeerId: string | undefined;
+
+  // Get our own peer ID for identification
+  try {
+    const topology = await axlClient.getTopology();
+    ourPeerId = topology.our_public_key;
+    console.log("[Agent] Our peer ID:", ourPeerId.substring(0, 16) + "...");
+  } catch (err) {
+    console.warn("[Agent] Could not get local peer ID from AXL topology:", err);
+  }
 
   if (options.task) {
     task = createAgentTask(options.task);
     console.log("Using provided task", task.id ?? "(no-id)");
   } else {
-    console.log("Waiting for task from AXL (darwin/task)...");
+    console.log("Waiting for task from AXL (polling /recv)...");
     task = await new Promise<AgentTask>((resolve) => {
-      axlSubscriber.subscribe("darwin/task", (t) => {
+      axlSubscriber.subscribe("darwin/task", (t: any) => {
+        // Extract sender peer ID if provided in the task payload
+        if (t.senderPeerId && typeof t.senderPeerId === "string") {
+          senderPeerId = t.senderPeerId;
+          console.log("[Agent] Extracted sender peer ID:", t.senderPeerId.substring(0, 16) + "...");
+        }
         console.log("Received task from AXL", t.id ?? "(no-id)");
         resolve(t);
       });
@@ -198,13 +221,25 @@ export const runAgentLoop = async (
     taskRound: task.round,
     action,
     receipt,
-    fitness
+    fitness,
+    senderPeerId  // Will be undefined in direct mode, but available for peer-to-peer scenarios
   };
 
   try {
-    await axlBroadcaster.publishResult(result);
+    // If we got a task via AXL (peer ID available), send result back to that peer
+    // Otherwise, if we have a known backend peer, send there
+    if (senderPeerId) {
+      console.log("Sending result back to task sender:", senderPeerId.substring(0, 16) + "...");
+      await axlBroadcaster.sendResultToPeer(senderPeerId, result);
+    } else if (process.env.BACKEND_PEER_ID) {
+      console.log("Sending result to backend peer:", process.env.BACKEND_PEER_ID.substring(0, 16) + "...");
+      await axlBroadcaster.sendResultToPeer(process.env.BACKEND_PEER_ID, result);
+    } else {
+      console.log("[Agent] Result computed but no peer ID configured to send result to.");
+      console.log("[Agent] Result would be sent to:", JSON.stringify(result, null, 2));
+    }
   } catch (err) {
-    console.warn("Failed to publish result to AXL", err);
+    console.warn("Failed to send result via AXL", err);
   }
 
   return {

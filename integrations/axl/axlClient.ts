@@ -1,158 +1,184 @@
-import { setTimeout as delay } from "timers/promises";
+/**
+ * AXL Client for peer-to-peer task communication via Gensyn/Yggdrasil network.
+ * 
+ * AXL node exposes HTTP API on port 9002 with endpoints:
+ * - GET /topology         - get local node's peer ID and network state
+ * - POST /send            - send raw message to a remote peer
+ * - GET /recv             - poll for inbound messages
+ * - POST /mcp/{id}/{svc}  - JSON-RPC to remote MCP services
+ * - POST /a2a/{id}        - JSON-RPC to remote A2A services
+ */
 
-type Handler = (msg: any) => void;
+const AXL_NODE_URL = process.env.AXL_NODE_URL || "http://localhost:9002";
 
-interface SubscriptionEntry {
-  ws: any | null;
-  handlers: Set<Handler>;
-  backoff: number;
-  reconnecting: boolean;
-  closed: boolean;
-}
+type Handler = (message: any) => void | Promise<void>;
 
-const BROADCAST_URL = process.env.AXL_BROADCAST_URL || "http://localhost:8080/broadcast";
-const WS_BASE = process.env.AXL_WS_BASE || "ws://localhost:8080/subscribe";
-
-function getWebSocketConstructor(): any {
-  // Prefer global WebSocket (browser or newer Node), otherwise require 'ws'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const g: any = global as any;
-  if (g.WebSocket) return g.WebSocket;
-  // dynamic require to avoid breaking environments without 'ws'
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-return
-    return require("ws");
-  } catch (err) {
-    throw new Error("WebSocket constructor not available. Please install 'ws' or run in an environment with global WebSocket.");
-  }
+export interface TopologyResponse {
+  our_ipv6: string;
+  our_public_key: string;
+  peers: string[];
+  tree: string[];
 }
 
 export class AXLClient {
-  private connections = new Map<string, SubscriptionEntry>();
+  private nodeUrl: string;
+  private pollIntervals = new Map<string, NodeJS.Timeout>();
+  private isPolling = new Map<string, boolean>();
+  private lastPollTime = new Map<string, number>();
 
-  public async publish(topic: string, message: any): Promise<void> {
-    const payload = { topic, message };
+  constructor() {
+    this.nodeUrl = AXL_NODE_URL;
+  }
+
+  /**
+   * Get the local node's topology (peer ID, network state).
+   */
+  public async getTopology(): Promise<TopologyResponse> {
     try {
-      const res = await fetch(BROADCAST_URL, {
+      const res = await fetch(`${this.nodeUrl}/topology`, { method: "GET" });
+      if (!res.ok) throw new Error(`AXL topology failed: ${res.status}`);
+      return res.json() as Promise<TopologyResponse>;
+    } catch (err) {
+      console.error("[AXL] getTopology error:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * Send a message to a remote peer.
+   * destinationPeerId: hex-encoded ed25519 public key (64 chars)
+   * message: raw data (Buffer or string or object that will be JSON stringified)
+   */
+  public async send(destinationPeerId: string, message: any): Promise<number> {
+    let body: string;
+    if (typeof message === "string") {
+      body = message;
+    } else if (Buffer.isBuffer(message)) {
+      body = message.toString();
+    } else {
+      // Assume object, stringify it
+      body = JSON.stringify(message);
+    }
+
+    try {
+      const res = await fetch(`${this.nodeUrl}/send`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload)
+        headers: { "X-Destination-Peer-Id": destinationPeerId },
+        body,
       });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        console.error("AXL publish failed", res.status, text);
-        throw new Error(`AXL publish failed: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`AXL send failed: ${res.status}`);
 
-      console.log("[AXL] published", topic, message?.id ?? "(no-id)");
-    } catch (error) {
-      console.error("[AXL] publish error", error);
-      throw error;
-    }
-  }
-
-  public subscribe(topic: string, handler: Handler): void {
-    let entry = this.connections.get(topic);
-    if (!entry) {
-      entry = { ws: null, handlers: new Set<Handler>(), backoff: 1000, reconnecting: false, closed: false };
-      this.connections.set(topic, entry);
-      this.connect(topic, entry).catch((err) => console.error("AXL connect failed", err));
-    }
-
-    entry.closed = false;
-    entry.handlers.add(handler);
-  }
-
-  public closeAll(): void {
-    for (const entry of this.connections.values()) {
-      entry.handlers.clear();
-      try {
-        entry.ws?.close?.();
-      } catch {
-        // ignore close errors during shutdown
-      }
-      entry.ws = null;
-      entry.closed = true;
-      entry.reconnecting = false;
-      entry.backoff = 1000;
-    }
-  }
-
-  private async connect(topic: string, entry: SubscriptionEntry) {
-    const WebSocketCtor = getWebSocketConstructor();
-    const url = `${WS_BASE}/${encodeURIComponent(topic)}`;
-
-    try {
-      // create socket
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      const ws = new WebSocketCtor(url);
-      entry.ws = ws;
-      entry.reconnecting = false;
-
-      ws.onopen = () => {
-        console.log(`[AXL] websocket open ${topic}`);
-        entry.backoff = 1000;
-      };
-
-      ws.onmessage = (evt: any) => {
-        const data = typeof evt.data === "string" ? evt.data : evt.data.toString();
-        try {
-          const parsed = JSON.parse(data);
-          console.log(`[AXL] recv ${topic}`, parsed?.id ?? "(no-id)");
-          for (const h of entry.handlers) {
-            try {
-              h(parsed);
-            } catch (handlerErr) {
-              console.error("AXL handler error", handlerErr);
-            }
-          }
-        } catch (parseErr) {
-          console.error("[AXL] invalid JSON message", data);
-        }
-      };
-
-      ws.onclose = async (ev: any) => {
-        console.warn(`[AXL] websocket closed ${topic} code=${ev?.code} reason=${ev?.reason}`);
-        entry.ws = null;
-        await this.scheduleReconnect(topic, entry);
-      };
-
-      ws.onerror = (err: any) => {
-        console.error(`[AXL] websocket error ${topic}`, err?.message ?? err);
-        try {
-          ws.close?.();
-        } catch {}
-      };
+      const sentBytes = res.headers.get("X-Sent-Bytes");
+      console.log(`[AXL] sent ${sentBytes} bytes to ${destinationPeerId.substring(0, 16)}...`);
+      return sentBytes ? parseInt(sentBytes, 10) : 0;
     } catch (err) {
-      console.error(`[AXL] connect exception ${topic}`, err);
-      await this.scheduleReconnect(topic, entry);
+      console.error("[AXL] send error:", err);
+      throw err;
     }
   }
 
-  private async scheduleReconnect(topic: string, entry: SubscriptionEntry) {
-    if (entry.closed) return;
-    if (entry.reconnecting) return;
-    entry.reconnecting = true;
-    const waitMs = entry.backoff;
-    console.log(`[AXL] reconnecting ${topic} in ${waitMs}ms`);
-    await delay(waitMs);
-    entry.backoff = Math.min(entry.backoff * 2, 30000);
-    entry.reconnecting = false;
-    if (entry.handlers.size === 0) {
-      // no interested handlers, skip
+  /**
+   * Poll for inbound messages.
+   * Returns null if queue is empty (204 No Content).
+   * Returns { fromPeerId, data } if a message is received.
+   */
+  public async recv(): Promise<{ fromPeerId: string; data: string } | null> {
+    try {
+      const res = await fetch(`${this.nodeUrl}/recv`, { method: "GET" });
+      
+      if (res.status === 204) {
+        // No content - queue is empty
+        return null;
+      }
+      
+      if (!res.ok) throw new Error(`AXL recv failed: ${res.status}`);
+
+      const fromPeerId = res.headers.get("X-From-Peer-Id");
+      const data = await res.text();
+      
+      if (fromPeerId) {
+        console.log(`[AXL] received message from ${fromPeerId.substring(0, 16)}...`);
+        return { fromPeerId, data };
+      }
+      
+      return null;
+    } catch (err) {
+      console.error("[AXL] recv error:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * Start polling for inbound messages and invoke handler on each.
+   * topic param is used for logging/identification only (AXL doesn't have topics in /send/recv).
+   * pollIntervalMs: polling interval in milliseconds (default 1000ms).
+   */
+  public startPolling(topic: string, handler: Handler, pollIntervalMs: number = 1000): void {
+    if (this.isPolling.get(topic)) {
+      console.log(`[AXL] already polling for "${topic}"`);
       return;
     }
 
-    try {
-      await this.connect(topic, entry);
-    } catch (err) {
-      console.error("[AXL] reconnect failed", err);
-      // schedule again
-      await this.scheduleReconnect(topic, entry);
+    this.isPolling.set(topic, true);
+    console.log(`[AXL] started polling for "${topic}" (interval: ${pollIntervalMs}ms)`);
+
+    const poll = async () => {
+      try {
+        const msg = await this.recv();
+        if (msg) {
+          try {
+            // Try to parse as JSON
+            const parsed = JSON.parse(msg.data);
+            await handler(parsed);
+          } catch (parseErr) {
+            // Not JSON; pass as raw message
+            await handler({
+              raw: msg.data,
+              fromPeerId: msg.fromPeerId,
+              isRaw: true
+            });
+          }
+        }
+      } catch (err) {
+        // Log but don't crash; keep polling
+        console.error(`[AXL] recv error (will retry):`, err);
+      }
+    };
+
+    // Execute immediate poll
+    poll().catch((err) => console.error(`[AXL] initial poll failed:`, err));
+    
+    // Set interval for subsequent polls
+    const interval = setInterval(poll, pollIntervalMs);
+    this.pollIntervals.set(topic, interval);
+    this.lastPollTime.set(topic, Date.now());
+  }
+
+  /**
+   * Stop polling for inbound messages.
+   */
+  public stopPolling(topic: string): void {
+    const interval = this.pollIntervals.get(topic);
+    if (interval) {
+      clearInterval(interval as unknown as NodeJS.Timeout);
+      this.pollIntervals.delete(topic);
     }
+    this.isPolling.delete(topic);
+    this.lastPollTime.delete(topic);
+    console.log(`[AXL] stopped polling for "${topic}"`);
+  }
+
+  /**
+   * Close all polling and clean up.
+   */
+  public closeAll(): void {
+    for (const topic of Array.from(this.pollIntervals.keys())) {
+      this.stopPolling(topic);
+    }
+    console.log("[AXL] closed all polling");
   }
 }
 
-// single shared client
+// Single shared client instance
 export const axlClient = new AXLClient();

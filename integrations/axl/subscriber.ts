@@ -4,16 +4,28 @@ import { axlClient } from "./axlClient";
 export type TaskHandler = (task: AgentTask) => Promise<void> | void;
 
 class AxlSubscriber {
-  public subscribe(topic: string, handler: TaskHandler): void {
-    axlClient.subscribe(topic, (msg: any) => {
-      // safe runtime check
+  /**
+   * Start polling for inbound tasks and invoke handler on each received task.
+   * topic: identifier for logging (AXL doesn't have actual topics)
+   * handler: function to call with each received AgentTask
+   * pollIntervalMs: poll interval in milliseconds (default 1000)
+   */
+  public subscribe(topic: string, handler: TaskHandler, pollIntervalMs: number = 1000): void {
+    axlClient.startPolling(topic, (msg: any) => {
+      // Safe runtime check
       if (!msg || typeof msg !== "object") {
         console.warn("AXL subscriber received non-object message", msg);
         return;
       }
 
+      // Handle raw messages that failed JSON parse
+      if (msg.isRaw === true) {
+        console.warn("AXL subscriber received non-JSON message", msg.raw);
+        return;
+      }
+
       try {
-        // basic shape enforcement
+        // Basic shape enforcement for AgentTask
         const task: AgentTask = {
           id: typeof msg.id === "string" ? msg.id : String(msg.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`),
           generation: typeof msg.generation === "number" ? msg.generation : 0,
@@ -27,7 +39,21 @@ class AxlSubscriber {
       } catch (err) {
         console.error("AXL subscriber handler error", err);
       }
-    });
+    }, pollIntervalMs);
+  }
+
+  /**
+   * Stop polling for a topic.
+   */
+  public unsubscribe(topic: string): void {
+    axlClient.stopPolling(topic);
+  }
+
+  /**
+   * Close all active subscriptions.
+   */
+  public closeAll(): void {
+    axlClient.closeAll();
   }
 }
 
