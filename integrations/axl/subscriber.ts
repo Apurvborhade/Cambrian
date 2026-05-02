@@ -18,6 +18,12 @@ class AxlSubscriber {
         return;
       }
 
+      // Only dispatch messages that are explicitly tagged as tasks for this topic.
+      // This prevents result payloads and other AXL traffic from being reprocessed as tasks.
+      if (typeof msg.topic !== "string" || msg.topic !== topic) {
+        return;
+      }
+
       // Handle raw messages that failed JSON parse
       if (msg.isRaw === true) {
         console.warn("AXL subscriber received non-JSON message", msg.raw);
@@ -33,7 +39,11 @@ class AxlSubscriber {
           topic: typeof msg.topic === "string" ? msg.topic : topic,
           issuedAt: typeof msg.issuedAt === "string" ? msg.issuedAt : new Date().toISOString(),
           context: typeof msg.context === "object" && msg.context !== null ? msg.context : { poolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool", roundWindowBlocks: 20 }
-        } as AgentTask;
+        };
+
+        if (typeof msg.senderPeerId === "string") {
+          task.senderPeerId = msg.senderPeerId;
+        }
 
         void handler(task);
       } catch (err) {

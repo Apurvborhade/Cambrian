@@ -13,6 +13,7 @@ export interface AgentTask {
   round: number;
   topic: string;
   issuedAt: string;
+  senderPeerId?: string;
   context: TaskContext;
 }
 
@@ -22,6 +23,7 @@ export interface CreateAgentTaskOptions {
   round?: number;
   topic?: string;
   issuedAt?: string;
+  senderPeerId?: string;
   context: TaskContext;
 }
 
@@ -31,5 +33,6 @@ export const createAgentTask = (options: CreateAgentTaskOptions): AgentTask => (
   round: options.round ?? 1,
   topic: options.topic ?? "darwin/task",
   issuedAt: options.issuedAt ?? new Date().toISOString(),
+  ...(options.senderPeerId ? { senderPeerId: options.senderPeerId } : {}),
   context: options.context
 });

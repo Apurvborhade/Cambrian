@@ -138,6 +138,29 @@ const createDefaultTask = (): CreateAgentTaskOptions => ({
   }
 });
 
+const registerAgentWithBackend = async (peerId: string, genomeId: string): Promise<void> => {
+  const backendUrl = process.env.BACKEND_URL ?? `http://localhost:${process.env.BACKEND_PORT ?? "3001"}`;
+
+  try {
+    const response = await fetch(`${backendUrl}/api/agents/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ peerId, genomeId })
+    });
+
+    if (!response.ok) {
+      console.warn(`[Agent] Backend agent registration failed: ${response.status}`);
+      return;
+    }
+
+    const payload = (await response.json().catch(() => null)) as { peerId?: string } | null;
+    console.log("[Agent] Registered with backend:", payload?.peerId ?? peerId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`[Agent] Could not register peer ID with backend: ${message}`);
+  }
+};
+
 export const runAgentLoop = async (
   genomeId: string,
   providedGenome?: AgentGenome,
@@ -155,6 +178,7 @@ export const runAgentLoop = async (
     const topology = await axlClient.getTopology();
     ourPeerId = topology.our_public_key;
     console.log("[Agent] Our peer ID:", ourPeerId.substring(0, 16) + "...");
+    void registerAgentWithBackend(ourPeerId, genomeId);
   } catch (err) {
     console.warn("[Agent] Could not get local peer ID from AXL topology:", err);
   }
@@ -176,6 +200,11 @@ export const runAgentLoop = async (
       });
     });
     console.log("Task received from AXL", task.id ?? "(no-id)");
+  }
+
+  senderPeerId = task.senderPeerId;
+  if (senderPeerId) {
+    console.log("[Agent] Using sender peer ID from task:", senderPeerId.substring(0, 16) + "...");
   }
 
   const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());

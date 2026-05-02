@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { taskService } from "../services/taskService";
+import { agentRegistryService } from "../services/agentRegistryService";
 import { axlBroadcaster } from "../../integrations/axl/broadcaster";
 
 const parsePositiveInteger = (value: unknown, fallback: number): number => {
@@ -50,19 +51,33 @@ const buildTaskContext = (context: unknown) => {
 
 export const createTaskHandler = async (request: Request, response: Response): Promise<void> => {
   try {
+    const registeredAgent = agentRegistryService.getLatestAgent();
+    if (!registeredAgent) {
+      response.status(409).json({
+        error: "No registered AXL agent found. Start an agent first so it can register its peer ID automatically."
+      });
+      return;
+    }
+
     const task = taskService.createTask({
       id: typeof request.body?.id === "string" ? request.body.id : undefined,
       generation: parsePositiveInteger(request.body?.generation, 0),
       round: parsePositiveInteger(request.body?.round, 1),
       topic: typeof request.body?.topic === "string" ? request.body.topic : undefined,
       issuedAt: typeof request.body?.issuedAt === "string" ? request.body.issuedAt : undefined,
+      senderPeerId: typeof request.body?.senderPeerId === "string"
+        ? request.body.senderPeerId
+        : process.env.BACKEND_PEER_ID || undefined,
       context: buildTaskContext(request.body?.context)
     });
 
-    // Broadcast the task via AXL (publish-once → agents subscribe)
+    // Broadcast the task to all registered agents
     const published = await axlBroadcaster.broadcastTask(task);
 
-    response.status(201).json(published);
+    response.status(201).json({
+      task: published,
+      broadcastedTo: agentRegistryService.listAgents().map((a) => a.peerId)
+    });
   } catch (error) {
     sendError(response, error);
   }

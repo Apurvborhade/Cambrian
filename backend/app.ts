@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import { agentRouter } from "./routes/agentRoutes";
 import { arenaRouter } from "./routes/arenaRoutes";
 import { taskRouter } from "./routes/taskRoutes";
 import { errorHandler } from "./middleware/errorHandler";
@@ -11,6 +12,7 @@ export const createApp = () => {
   app.use(cors());
   app.use(express.json());
 
+  app.use("/api", agentRouter);
   app.use("/api", arenaRouter);
   app.use("/api", taskRouter);
 

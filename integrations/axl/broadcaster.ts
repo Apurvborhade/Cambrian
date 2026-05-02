@@ -1,5 +1,6 @@
 import type { AgentTask } from "../../core/types/task";
 import { axlClient } from "./axlClient";
+import { agentRegistryService } from "../../backend/services/agentRegistryService";
 
 export class AxlBroadcaster {
   /**
@@ -31,9 +32,17 @@ export class AxlBroadcaster {
       issuedAt: task.issuedAt ?? new Date().toISOString()
     } as AgentTask;
 
-    // TODO: implement agent registry to broadcast to all agents
-    // For now, this logs the task that should be broadcasted
-    console.log("[AXL] broadcastTask (pending agent registry):", toPublish.id);
+    // Send the task to every registered agent via AXL
+    const agents = agentRegistryService.listAgents();
+    for (const a of agents) {
+      try {
+        await this.sendTaskToPeer(a.peerId, toPublish);
+      } catch (err) {
+        console.warn("[AXL] broadcastTask failed to send to", a.peerId, err);
+      }
+    }
+
+    console.log("[AXL] broadcastTask sent to", agents.length, "agents for task", toPublish.id);
     return toPublish;
   }
 
