@@ -1,19 +1,70 @@
 import type { AgentTask } from "../../core/types/task";
+import { axlClient } from "./axlClient";
 
 export type TaskHandler = (task: AgentTask) => Promise<void> | void;
 
-export class AxlSubscriber {
-  public async subscribe(_topic: string, handler: TaskHandler): Promise<void> {
-    await handler({
-      id: "bootstrap-task",
-      generation: 0,
-      round: 1,
-      topic: "darwin/task",
-      issuedAt: new Date().toISOString(),
-      context: {
-        poolAddress: process.env.TARGET_POOL_ADDRESS ?? "",
-        roundWindowBlocks: 20
+class AxlSubscriber {
+  /**
+   * Start polling for inbound tasks and invoke handler on each received task.
+   * topic: identifier for logging (AXL doesn't have actual topics)
+   * handler: function to call with each received AgentTask
+   * pollIntervalMs: poll interval in milliseconds (default 1000)
+   */
+  public subscribe(topic: string, handler: TaskHandler, pollIntervalMs: number = 1000): void {
+    axlClient.startPolling(topic, (msg: any) => {
+      // Safe runtime check
+      if (!msg || typeof msg !== "object") {
+        console.warn("AXL subscriber received non-object message", msg);
+        return;
       }
-    });
+
+      // Only dispatch messages that are explicitly tagged as tasks for this topic.
+      // This prevents result payloads and other AXL traffic from being reprocessed as tasks.
+      if (typeof msg.topic !== "string" || msg.topic !== topic) {
+        return;
+      }
+
+      // Handle raw messages that failed JSON parse
+      if (msg.isRaw === true) {
+        console.warn("AXL subscriber received non-JSON message", msg.raw);
+        return;
+      }
+
+      try {
+        // Basic shape enforcement for AgentTask
+        const task: AgentTask = {
+          id: typeof msg.id === "string" ? msg.id : String(msg.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`),
+          generation: typeof msg.generation === "number" ? msg.generation : 0,
+          round: typeof msg.round === "number" ? msg.round : 1,
+          topic: typeof msg.topic === "string" ? msg.topic : topic,
+          issuedAt: typeof msg.issuedAt === "string" ? msg.issuedAt : new Date().toISOString(),
+          context: typeof msg.context === "object" && msg.context !== null ? msg.context : { poolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool", roundWindowBlocks: 20 }
+        };
+
+        if (typeof msg.senderPeerId === "string") {
+          task.senderPeerId = msg.senderPeerId;
+        }
+
+        void handler(task);
+      } catch (err) {
+        console.error("AXL subscriber handler error", err);
+      }
+    }, pollIntervalMs);
+  }
+
+  /**
+   * Stop polling for a topic.
+   */
+  public unsubscribe(topic: string): void {
+    axlClient.stopPolling(topic);
+  }
+
+  /**
+   * Close all active subscriptions.
+   */
+  public closeAll(): void {
+    axlClient.closeAll();
   }
 }
+
+export const axlSubscriber = new AxlSubscriber();

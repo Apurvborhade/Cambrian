@@ -61,3 +61,7 @@ junit.xml
 *.seed
 
 package-lock.json
+axl/node
+axl/*.pem
+axl/node-data/
+axl/logs/
