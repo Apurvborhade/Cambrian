@@ -35,6 +35,14 @@ export const env = {
   // Outcome-based (paper) fitness evaluation window.
   // If both are set, blocks takes precedence when quote block numbers are available.
   fitnessEvalBlocks: process.env.FITNESS_EVAL_BLOCKS ? parseInt(process.env.FITNESS_EVAL_BLOCKS, 10) : 0,
-  fitnessEvalMinutes: process.env.FITNESS_EVAL_MINUTES ? parseFloat(process.env.FITNESS_EVAL_MINUTES) : 5
+  fitnessEvalMinutes: process.env.FITNESS_EVAL_MINUTES ? parseFloat(process.env.FITNESS_EVAL_MINUTES) : 5,
+
+  // Storage fallback (Supabase).
+  supabaseUrl: process.env.SUPABASE_URL ?? "",
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+
+  // If 0G storage calls (KV/indexer/batcher) stall, fall back to Supabase to keep the arena running.
+  storageTimeoutMs: process.env.STORAGE_TIMEOUT_MS ? parseInt(process.env.STORAGE_TIMEOUT_MS, 10) : 8000,
+  storageCooldownMs: process.env.STORAGE_COOLDOWN_MS ? parseInt(process.env.STORAGE_COOLDOWN_MS, 10) : 60000
   
 };

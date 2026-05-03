@@ -4,7 +4,7 @@ import type { AgentGenome } from "../types/genome";
 import { createSeedGenomes } from "../genome/generator";
 import { calculateFitness } from "../evolution/fitness";
 import { generateChildGenomeWithCompute, type MutationRequest } from "../evolution/mutation";
-import { ZeroGStorageAdapter } from "../../integrations/0g/storage";
+import { createStorageAdapter } from "../../integrations/storage";
 import { ZeroGComputeAdapter } from "../../integrations/0g/compute";
 import { INFTOnchainAdapter } from "../../integrations/onchain/inft";
 import { runAgentLoop } from "../../apps/agent/loop";
@@ -57,7 +57,7 @@ export interface ArenaDetails {
   genomes: AgentGenome[];
 }
 
-const storage = new ZeroGStorageAdapter();
+const storage = createStorageAdapter();
 const compute = new ZeroGComputeAdapter();
 const genomeFallback = new Map<string, AgentGenome>();
 const arenaStateFallback = new Map<string, ArenaStateRecord>();
@@ -628,6 +628,7 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
           console.log(`[arena:${arenaId}] fitness genome=${genome.genome_id} score=${fitness.toFixed(4)}`);
 
           const rankedEntry = {
+            ...genome,
             genomeId: genome.genome_id,
             tokenId: updatedGenome.token_id,
             fitness,

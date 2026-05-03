@@ -1,7 +1,7 @@
 import { createAgentTask, type CreateAgentTaskOptions } from "../../core/types/task";
 import type { AgentGenome } from "../../core/types/genome";
 import { createSeedGenomes } from "../../core/genome/generator";
-import { ZeroGStorageAdapter } from "../../integrations/0g/storage";
+import { createStorageAdapter } from "../../integrations/storage";
 import { ZeroGComputeAdapter } from "../../integrations/0g/compute";
 import { INFTOnchainAdapter } from "../../integrations/onchain/inft";
 import { KeeperHubClient, type ExecutionReceipt } from "../../integrations/keeperhub/client";
@@ -16,7 +16,7 @@ import { calculateFitness } from "../../core/evolution/fitness";
 import { computePaperFitnessIfDue, paperPositionFromAction } from "../../core/evolution/paperFitness";
 import type { MarketSnapshot } from "../../integrations/uniswap/market";
 
-const storage = new ZeroGStorageAdapter();
+const storage = createStorageAdapter();
 
 export interface RunAgentLoopOptions {
   task?: CreateAgentTaskOptions;
