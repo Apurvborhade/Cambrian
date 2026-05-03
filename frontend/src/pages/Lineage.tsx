@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
+import { ActivityLogPanel } from "../components/ActivityLogPanel";
 import { AgentDetailPanel } from "../components/AgentDetailPanel";
+import { ArenaCreatedModal } from "../components/ArenaCreatedModal";
 import { GenomeDiffModal } from "../components/GenomeDiffModal";
 import { EmptyState } from "../components/EmptyState";
 import { useArenaStore } from "../state/arenaStore";
 import type { Genome } from "../data/domain";
+import { shortGenomeLabel } from "../utils/genomeShort";
 
 type GraphNode = {
   genome: Genome;
@@ -12,13 +15,6 @@ type GraphNode = {
 };
 
 type PositionedNode = d3.HierarchyPointNode<GraphNode>;
-
-function shortName(genomeId: string) {
-  const raw = genomeId.replace(/^0x/, "");
-  const tail = raw.slice(-6).toUpperCase();
-  const [first = "", second = ""] = tail.split("_");
-  return second ? `${first}-${second}` : tail.length > 2 ? `${tail.slice(0, -2)}-${tail.slice(-2)}` : tail;
-}
 
 function buildGraph(agents: Genome[]) {
   const childrenByParent = new Map<string, Genome[]>();
@@ -74,6 +70,43 @@ function curvePath(source: { x: number; y: number }, target: { x: number; y: num
   return `M ${source.x} ${source.y} C ${source.x} ${midY}, ${target.x} ${midY}, ${target.x} ${target.y}`;
 }
 
+const LINEAGE_FIT_PADDING = 64;
+/** Max node radius + ring + label slack in tree coordinates */
+const LINEAGE_NODE_EXTENT = 52;
+
+/** Center visible tree nodes in the SVG viewport (fixes genesis cluster stuck on the left). */
+function computeLineageFitTransform(
+  viewport: { width: number; height: number },
+  nodes: PositionedNode[],
+): d3.ZoomTransform {
+  const { width: vw, height: vh } = viewport;
+  if (!nodes.length || vw <= 0 || vh <= 0) {
+    return d3.zoomIdentity.translate(Math.max(0, vw / 2), Math.max(0, vh / 2)).scale(1);
+  }
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const node of nodes) {
+    minX = Math.min(minX, node.x - LINEAGE_NODE_EXTENT);
+    maxX = Math.max(maxX, node.x + LINEAGE_NODE_EXTENT);
+    minY = Math.min(minY, node.y - LINEAGE_NODE_EXTENT);
+    maxY = Math.max(maxY, node.y + LINEAGE_NODE_EXTENT);
+  }
+
+  const bw = maxX - minX + LINEAGE_FIT_PADDING * 2;
+  const bh = maxY - minY + LINEAGE_FIT_PADDING * 2;
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+
+  let k = Math.min(vw / bw, vh / bh, 2);
+  k = Math.max(k, 0.35);
+  const tx = vw / 2 - cx * k;
+  const ty = vh / 2 - cy * k;
+  return d3.zoomIdentity.translate(tx, ty).scale(k);
+}
+
 export function LineagePage() {
   const {
     allGenomes,
@@ -85,10 +118,15 @@ export function LineagePage() {
     runRound,
     loading,
     error,
+    arenaState,
+    timelineRows,
+    runBusy,
   } = useArenaStore();
+  const canvasShellRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const [viewport, setViewport] = useState({ width: 0, height: 780 });
+  const [viewport, setViewport] = useState({ width: 0, height: 520 });
+  const [arenaCreatedInfo, setArenaCreatedInfo] = useState<{ arenaId: string; size: number } | null>(null);
   const [transform, setTransform] = useState<d3.ZoomTransform>(d3.zoomIdentity);
   const [showDead, setShowDead] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -106,16 +144,18 @@ export function LineagePage() {
   const diffDescendant = selectedIds.length === 2 ? allGenomes.find((agent) => agent.genome_id === selectedIds[1]) : undefined;
 
   useEffect(() => {
+    const shell = canvasShellRef.current;
+    if (!shell) return;
+
     const updateSize = () => {
-      const width = svgRef.current?.parentElement?.clientWidth ?? 1200;
-      setViewport({ width, height: 780 });
+      const width = shell.clientWidth || 1200;
+      const height = Math.max(320, shell.clientHeight);
+      setViewport({ width, height });
     };
 
     updateSize();
     const resizeObserver = new ResizeObserver(updateSize);
-    if (svgRef.current?.parentElement) {
-      resizeObserver.observe(svgRef.current.parentElement);
-    }
+    resizeObserver.observe(shell);
     return () => resizeObserver.disconnect();
   }, []);
 
@@ -128,8 +168,19 @@ export function LineagePage() {
   const treeLayout = useMemo(() => d3.tree<GraphNode>().nodeSize([128, 150])(hierarchy), [hierarchy]);
   const positionedNodes = treeLayout.descendants() as PositionedNode[];
   const nodeMap = new Map(positionedNodes.map((node) => [node.data.genome.genome_id, node]));
-  const visibleNodes = positionedNodes.filter(
-    (node) => node.data.genome.genome_id !== "__ROOT__" && (showDead || node.data.genome.status !== "DEAD"),
+  const visibleNodes = useMemo(
+    () =>
+      treeLayout
+        .descendants()
+        .filter(
+          (node) =>
+            node.data.genome.genome_id !== "__ROOT__" && (showDead || node.data.genome.status !== "DEAD"),
+        ) as PositionedNode[],
+    [treeLayout, showDead],
+  );
+  const graphFitSignature = useMemo(
+    () => visibleNodes.map((n) => `${n.data.genome.genome_id}:${n.x}:${n.y}`).join("|"),
+    [visibleNodes],
   );
   const visibleIds = new Set(visibleNodes.map((node) => node.data.genome.genome_id));
 
@@ -150,7 +201,7 @@ export function LineagePage() {
     return visibleIds.has(sourceGenome.genome_id) && visibleIds.has(targetGenome.genome_id);
   });
 
-  const nodesOnly = visibleNodes.filter((node) => node.data.genome.genome_id !== "__ROOT__");
+  const nodesOnly = visibleNodes;
   const generationY = new Map<number, number>();
   nodesOnly.forEach((node) => {
     if (!generationY.has(node.data.genome.generation)) {
@@ -159,20 +210,21 @@ export function LineagePage() {
   });
 
   useEffect(() => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || allGenomes.length === 0) return;
 
     const selection = d3.select(svgRef.current);
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.5, 1.5])
+      .scaleExtent([0.35, 2])
       .on("zoom", (event) => setTransform(event.transform));
 
     zoomRef.current = zoom;
     selection.call(zoom);
-    const centered = d3.zoomIdentity.translate(viewport.width / 2, 84).scale(1);
-    selection.call(zoom.transform as any, centered as any);
-    setTransform(centered);
-  }, [viewport.width]);
+    const fitted = computeLineageFitTransform(viewport, visibleNodes);
+    selection.call(zoom.transform as any, fitted as any);
+    setTransform(fitted);
+    /* graphFitSignature deps cover visible node layout changes; viewport.* covers resize */
+  }, [allGenomes.length, viewport.width, viewport.height, graphFitSignature]);
 
   useEffect(() => {
     if (selectedIds.length === 2) {
@@ -200,14 +252,18 @@ export function LineagePage() {
 
   const resetView = () => {
     if (!svgRef.current || !zoomRef.current) return;
-    const selection = d3.select(svgRef.current);
-    const centered = d3.zoomIdentity.translate(viewport.width / 2, 84).scale(1);
-    selection.transition().duration(250).call(zoomRef.current.transform as any, centered as any);
-    setTransform(centered);
+    const fitted = computeLineageFitTransform(viewport, visibleNodes);
+    d3.select(svgRef.current)
+      .transition()
+      .duration(250)
+      .call(zoomRef.current.transform as any, fitted as any);
   };
 
   const handleCreateArena = async () => {
-    await createArena(draftArenaId.trim() || arenaId, draftArenaSize);
+    const result = await createArena(draftArenaId.trim() || arenaId, draftArenaSize);
+    if (result.ok && result.created) {
+      setArenaCreatedInfo({ arenaId: result.arenaId, size: result.size });
+    }
   };
 
   const handleRunArena = async () => {
@@ -217,7 +273,7 @@ export function LineagePage() {
   const hasGenomes = allGenomes.length > 0;
 
   return (
-    <main className="page-shell lineage-page">
+    <main className="page-shell lineage-page lineage-page--fit">
       <div className="panel lineage-controls">
         <div className="section-heading">
           <div className="panel-title">LINEAGE_GRAPH</div>
@@ -276,7 +332,7 @@ export function LineagePage() {
       </div>
 
       <section className="lineage-grid">
-        <article className="panel lineage-canvas-shell">
+        <article ref={canvasShellRef} className="panel lineage-canvas-shell">
           {hasGenomes ? (
             <>
               <div className="lineage-canvas-pattern" />
@@ -349,7 +405,7 @@ export function LineagePage() {
                         <circle className="lineage-node-core" r={radius} />
                         {genome.status === "DEAD" ? <text className="lineage-node-cross" y={4}>x</text> : null}
                         <text className="lineage-node-label" y={radius + 20}>
-                          {shortName(genome.genome_id)}
+                          {shortGenomeLabel(genome.genome_id)}
                         </text>
                       </g>
                     );
@@ -365,17 +421,38 @@ export function LineagePage() {
           )}
         </article>
 
-        <aside className="lineage-side-panel">
-          {selectedAgent ? (
-            <AgentDetailPanel genome={selectedAgent} allAgents={allGenomes} readOnly />
-          ) : (
-            <EmptyState
-              title={error ? "BACKEND_ERROR" : "ARENA_EMPTY"}
-              subtitle={error ?? "CREATE_AN_ARENA_TO_BEGIN_INSPECTION"}
-            />
-          )}
+        <aside className="lineage-side-panel lineage-side-stack">
+          <div className="lineage-profile-slot">
+            {selectedAgent ? (
+              <AgentDetailPanel
+                genome={selectedAgent}
+                allAgents={allGenomes}
+                readOnly
+                panelClassName="agent-detail-panel--compact"
+              />
+            ) : (
+              <EmptyState
+                title={error ? "BACKEND_ERROR" : "ARENA_EMPTY"}
+                subtitle={error ?? "CREATE_AN_ARENA_TO_BEGIN_INSPECTION"}
+              />
+            )}
+          </div>
+          <ActivityLogPanel
+            timelineRows={timelineRows}
+            error={error}
+            runBusy={runBusy}
+            arenaSize={arenaState?.size ?? null}
+          />
         </aside>
       </section>
+
+      <ArenaCreatedModal
+        open={arenaCreatedInfo !== null}
+        arenaId={arenaCreatedInfo?.arenaId ?? ""}
+        arenaSize={arenaCreatedInfo?.size ?? 0}
+        onDismiss={() => setArenaCreatedInfo(null)}
+        onRunArena={handleRunArena}
+      />
 
       {diffOpen && diffParent && diffDescendant ? (
         <GenomeDiffModal parent={diffParent} descendant={diffDescendant} onClose={() => setDiffOpen(false)} />
