@@ -30,6 +30,10 @@ export type TimelineRow = {
   data: Record<string, unknown>;
 };
 
+export type CreateArenaResult =
+  | { ok: true; created: boolean; arenaId: string; size: number }
+  | { ok: false };
+
 type ArenaContextValue = {
   arenaId: string;
   setArenaId: (arenaId: string) => void;
@@ -46,7 +50,8 @@ type ArenaContextValue = {
   backendLatencyMs: number | null;
   loading: boolean;
   error: string | null;
-  createArena: (arenaId?: string, size?: number) => Promise<void>;
+  runBusy: boolean;
+  createArena: (arenaId?: string, size?: number) => Promise<CreateArenaResult>;
   runArena: (generations?: number) => Promise<void>;
   runRound: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -130,8 +135,19 @@ const createTimelineRow = (
   const data = event.data as Record<string, unknown>;
   const genome = (data.genome as BackendGenome | undefined) ?? (data.child as BackendGenome | undefined) ?? null;
   const state = (data.state as BackendArenaSnapshotPayload["state"] | undefined) ?? null;
-  const round = typeof data.round === "number" ? data.round : state?.round ?? 0;
-  const generation = typeof data.generation === "number" ? data.generation : genome?.generation ?? state?.generation ?? 0;
+  const resultPayload = data.result as { generation?: number; round?: number; ranked?: unknown[] } | undefined;
+  const round =
+    typeof data.round === "number"
+      ? data.round
+      : typeof resultPayload?.round === "number"
+        ? resultPayload.round
+        : state?.round ?? 0;
+  const generation =
+    typeof data.generation === "number"
+      ? data.generation
+      : typeof resultPayload?.generation === "number"
+        ? resultPayload.generation
+        : genome?.generation ?? state?.generation ?? 0;
   const agentId =
     typeof data.agentId === "string"
       ? data.agentId
@@ -241,6 +257,7 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
   const [backendLatencyMs, setBackendLatencyMs] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [runBusy, setRunBusy] = useState(false);
   const streamRef = useRef<EventSource | null>(null);
   const bootedRef = useRef(false);
 
@@ -275,7 +292,8 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
       }, {}),
     );
     setSelectedGenomeId(snapshot.agents[0]?.genome_id ?? null);
-    setTimelineRows([]);
+    // Keep timelineRows: refresh() re-fetches state after runArena/runRound; clearing here
+    // wiped all SSE-backed activity (child created, rounds, etc.) and left the log empty.
     setBurnedIds(new Set());
   }, []);
 
@@ -476,20 +494,27 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
   }, [arenaId]);
 
   const createArena = useCallback(
-    async (nextArenaId = arenaId, size = DEFAULT_ARENA_SIZE) => {
+    async (nextArenaId = arenaId, size = DEFAULT_ARENA_SIZE): Promise<CreateArenaResult> => {
       setLoading(true);
       try {
         const result = await backendApi.createArena(nextArenaId, size);
         if (result.state && result.agents.length) {
           persistArenaId(nextArenaId);
+          setTimelineRows([]);
           applySnapshot({ state: result.state, agents: result.agents });
           setError(null);
           connectStream(nextArenaId);
-          return;
+          return {
+            ok: true,
+            created: result.created,
+            arenaId: nextArenaId,
+            size: result.size ?? size,
+          };
         }
         throw new Error("Backend createArena returned an empty arena.");
       } catch (createError) {
         setError(createError instanceof Error ? createError.message : String(createError));
+        return { ok: false };
       } finally {
         setLoading(false);
       }
@@ -499,22 +524,28 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
 
   const runArena = useCallback(
     async (generations = 1) => {
+      setRunBusy(true);
       try {
         await backendApi.runArena(arenaId, generations);
         await refresh();
       } catch (runError) {
         setError(runError instanceof Error ? runError.message : String(runError));
+      } finally {
+        setRunBusy(false);
       }
     },
     [arenaId, refresh],
   );
 
   const runRound = useCallback(async () => {
+    setRunBusy(true);
     try {
       await backendApi.runArenaRound(arenaId);
       await refresh();
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : String(runError));
+    } finally {
+      setRunBusy(false);
     }
   }, [arenaId, refresh]);
 
@@ -595,6 +626,7 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
       backendLatencyMs,
       loading,
       error,
+      runBusy,
       createArena,
       runArena,
       runRound,
@@ -615,6 +647,7 @@ export function ArenaProvider({ children }: { children: ReactNode }) {
       persistArenaId,
       refresh,
       runArena,
+      runBusy,
       runRound,
       selectedGenomeId,
       setSelectedGenomeId,

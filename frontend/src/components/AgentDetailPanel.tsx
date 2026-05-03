@@ -35,10 +35,13 @@ export function AgentDetailPanel({
   genome,
   allAgents = [],
   readOnly = false,
+  panelClassName = "",
 }: {
   genome: Genome;
   allAgents?: Genome[];
   readOnly?: boolean;
+  /** Extra classes on the root panel (e.g. compact layout on Lineage). */
+  panelClassName?: string;
 }) {
   const navigate = useNavigate();
 
@@ -75,7 +78,7 @@ export function AgentDetailPanel({
   });
 
   return (
-    <aside className="panel agent-detail-panel">
+    <aside className={`panel agent-detail-panel${panelClassName ? ` ${panelClassName}` : ""}`}>
       <div className="agent-detail-header">
         <div>
           <div className="panel-title">AGENT_PROFILE</div>

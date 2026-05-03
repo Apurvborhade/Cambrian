@@ -341,6 +341,249 @@
   align-self: start;
 }
 
+.lineage-page--fit {
+  max-height: calc(100vh - 68px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+.lineage-page--fit .lineage-grid {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.lineage-page--fit .lineage-canvas-shell {
+  min-height: 0;
+  height: 100%;
+}
+
+.lineage-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+  align-self: stretch;
+}
+
+.lineage-profile-slot {
+  flex: 1 1 48%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lineage-profile-slot .empty-state {
+  flex: 1;
+  min-height: 180px;
+}
+
+.agent-detail-panel--compact {
+  padding: 10px 12px;
+}
+
+.agent-detail-panel--compact .agent-detail-header {
+  margin-bottom: 10px;
+}
+
+.agent-detail-panel--compact .agent-title {
+  margin-top: 4px;
+  font-size: 22px;
+}
+
+.agent-detail-panel--compact .agent-metrics-grid {
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.agent-detail-panel--compact .metric-card {
+  padding: 8px 10px;
+}
+
+.agent-detail-panel--compact .metric-value {
+  margin-top: 4px;
+  font-size: 18px;
+}
+
+.agent-detail-panel--compact .detail-section {
+  margin-bottom: 10px;
+}
+
+.agent-detail-panel--compact .delta-list {
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.agent-detail-panel--compact .delta-row {
+  padding: 6px 8px;
+}
+
+.agent-detail-panel--compact .sparkline-shell {
+  margin-top: 6px;
+  padding: 6px 6px 2px;
+}
+
+.activity-log-panel {
+  flex: 1 1 48%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  overflow: hidden;
+}
+
+.activity-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.activity-log-header-title {
+  margin: 0;
+}
+
+.activity-log-live-dot {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  transition: color 0.2s ease;
+}
+
+.activity-log-live-dot--on {
+  color: var(--accent-cyan);
+  animation: activity-log-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes activity-log-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.activity-log-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-tertiary);
+  padding: 8px 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+}
+
+.activity-log-empty {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.activity-log-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.activity-log-meta {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.activity-log-text {
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.activity-log-line--survivor .activity-log-text {
+  color: var(--accent-green);
+}
+
+.activity-log-line--eliminated .activity-log-text {
+  color: rgba(255, 107, 53, 0.95);
+}
+
+.activity-log-line--child .activity-log-text {
+  color: var(--accent-gold);
+}
+
+.activity-log-line--mutation .activity-log-text {
+  color: var(--accent-cyan);
+}
+
+.activity-log-line--neutral .activity-log-text {
+  color: var(--text-primary);
+}
+
+.activity-log-line--error .activity-log-text {
+  color: var(--accent-red);
+}
+
+.arena-created-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.arena-created-modal {
+  width: min(420px, 100%);
+  border: 1px solid rgba(0, 255, 204, 0.45);
+  background: var(--bg-secondary);
+  padding: 20px 22px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.arena-created-modal-title {
+  color: var(--accent-cyan);
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  margin-bottom: 14px;
+}
+
+.arena-created-modal-block {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.arena-created-modal-primary {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.arena-created-modal-secondary {
+  width: 100%;
+  justify-content: center;
+}
+
 .lineage-node {
   cursor: pointer;
 }
