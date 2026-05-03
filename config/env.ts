@@ -43,6 +43,9 @@ export const env = {
 
   // If 0G storage calls (KV/indexer/batcher) stall, fall back to Supabase to keep the arena running.
   storageTimeoutMs: process.env.STORAGE_TIMEOUT_MS ? parseInt(process.env.STORAGE_TIMEOUT_MS, 10) : 8000,
-  storageCooldownMs: process.env.STORAGE_COOLDOWN_MS ? parseInt(process.env.STORAGE_COOLDOWN_MS, 10) : 60000
+  storageCooldownMs: process.env.STORAGE_COOLDOWN_MS ? parseInt(process.env.STORAGE_COOLDOWN_MS, 10) : 60000,
+
+  // Agent runtime concurrency. Keep this <= provider concurrent inference limit to avoid 429s.
+  maxAgentConcurrency: process.env.MAX_AGENT_CONCURRENCY ? parseInt(process.env.MAX_AGENT_CONCURRENCY, 10) : 2
   
 };

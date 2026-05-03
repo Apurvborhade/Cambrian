@@ -549,9 +549,14 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
     }
   });
 
-  const ranked = (
-    await Promise.allSettled(
-      genomes.map(async (genome) => {
+  const concurrency = Math.max(1, Number.isInteger(env.maxAgentConcurrency) ? env.maxAgentConcurrency : 2);
+  const ranked: any[] = [];
+
+  // Evaluate agents with bounded concurrency to respect provider limits (0G Compute often enforces low concurrency caps).
+  for (let cursor = 0; cursor < genomes.length; cursor += concurrency) {
+    const batch = genomes.slice(cursor, cursor + concurrency);
+    const settled = await Promise.allSettled(
+      batch.map(async (genome) => {
         try {
           const result = await runAgentLoop(genome.genome_id, genome);
           const fitness = result.fitness;
@@ -650,11 +655,18 @@ export const runArenaRound = async (arenaId: string): Promise<ArenaRoundResult> 
 
           return rankedEntry;
         }
-      }),
-    )
-  )
-    .filter((entry): entry is PromiseFulfilledResult<any> => entry.status === "fulfilled")
-    .map((entry) => entry.value);
+      })
+    );
+
+    for (const entry of settled) {
+      if (entry.status === "fulfilled") {
+        ranked.push(entry.value);
+      } else {
+        const message = entry.reason instanceof Error ? entry.reason.message : String(entry.reason);
+        console.warn(`[arena:${arenaId}] agent batch entry rejected: ${message}`);
+      }
+    }
+  }
 
   ranked.sort((left, right) => right.fitness - left.fitness);
 
