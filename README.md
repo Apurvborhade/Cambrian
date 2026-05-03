@@ -173,6 +173,12 @@ If you see `BAD_DATA (value="0x")` or messages like “ledger contract … is no
 is not the correct 0G Compute-serving network for the broker defaults, or you need to override the ledger/inference contract
 addresses for that network.
 
+### iNFT (optional)
+
+If you want on-chain mint/burn hooks enabled, set:
+
+- `INFT_CONTRACT_ADDRESS=0xEd2aB399d07FE974358Ed510Ef57d261aa72DC3C`
+
 ## Useful commands
 
 ```bash
