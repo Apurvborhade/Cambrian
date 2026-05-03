@@ -18,7 +18,16 @@ npm run start:backend
 npm run seed:population
 npm run run:generation
 npm run start:arena
+npm run spawn:axl-nodes -- 3 9002
 ```
+
+AXL helper:
+
+- `npm run spawn:axl-nodes -- 3 9002` prints a backend AXL node plus three agent nodes.
+- Run one AXL node per agent when you need distinct `our_public_key` values.
+- The backend AXL node is the bootstrap peer; agents join that mesh.
+
+If an agent runs inside WSL while the backend runs on Windows, set `BACKEND_URL` explicitly or rely on the built-in host-gateway fallback in `apps/agent/loop.ts`.
 
 Backend endpoints:
 

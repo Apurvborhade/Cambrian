@@ -52,7 +52,10 @@ The node will start on `http://localhost:9002`.
 In `.env`:
 ```env
 AXL_NODE_URL=http://localhost:9002
+BACKEND_URL=http://localhost:3001
 ```
+
+If the agent runs inside WSL and the backend runs on Windows, `BACKEND_URL` may need to point at the Windows host gateway instead of `localhost`. The agent now auto-detects that case, but an explicit `BACKEND_URL` still wins.
 
 ### 3. Run Backend
 
@@ -88,6 +91,38 @@ Agent will:
 3. Wait for task from backend
 4. Process task
 5. Send result back to backend (via `POST /send`)
+
+### Run One AXL Node Per Agent
+
+If you want each agent to have a unique peer ID, run a separate AXL node for the backend and each agent process. The helper below prints a config and launch plan for the full mesh:
+
+```bash
+npm run spawn:axl-nodes -- 3 9002
+```
+
+This generates one backend directory plus one node directory per agent under `axl/nodes/`, each with its own `private.pem`, `node-config.json`, `api_port`, and mesh port.
+
+The backend node becomes the bootstrap peer and includes a `Listen` entry. The agent nodes include `Peers` entries pointing at that backend peer so they can join the same mesh immediately.
+
+Use the printed config blocks as a template, then start the backend node first, followed by each agent node in its own shell/WSL session before launching the matching agent process.
+
+If two agent processes still show the same `our_public_key`, they are sharing the same AXL node. In that case, `GET /api/agents` will only show one entry because the registry keys by `peerId`.
+
+Quick verification:
+
+```bash
+npm run spawn:axl-nodes -- 2 9002
+```
+
+Start the backend node and both agent node configs from the generated output, then compare:
+
+```bash
+curl http://localhost:9002/topology
+curl http://localhost:9003/topology
+curl http://localhost:9004/topology
+```
+
+Each response should have a different `our_public_key`.
 
 ## Communication Pattern
 

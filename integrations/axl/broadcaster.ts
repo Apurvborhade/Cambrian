@@ -32,17 +32,22 @@ export class AxlBroadcaster {
       issuedAt: task.issuedAt ?? new Date().toISOString()
     } as AgentTask;
 
-    // Send the task to every registered agent via AXL
+    // Send the task to every registered agent via AXL in parallel.
+    // Using Promise.allSettled avoids failing the entire broadcast when one send fails
+    // and makes delivery concurrent so agents receive the same task around the same time.
     const agents = agentRegistryService.listAgents();
-    for (const a of agents) {
-      try {
-        await this.sendTaskToPeer(a.peerId, toPublish);
-      } catch (err) {
-        console.warn("[AXL] broadcastTask failed to send to", a.peerId, err);
-      }
+    const sends = agents.map((a) => this.sendTaskToPeer(a.peerId, toPublish).then(() => ({ peerId: a.peerId, ok: true })).catch((err) => ({ peerId: a.peerId, ok: false, err })));
+
+    const results = await Promise.allSettled(sends);
+
+    // Log results succinctly
+    const succeeded = results.filter((r) => r.status === "fulfilled" && (r as PromiseFulfilledResult<any>).value.ok).length;
+    const failed = results.length - succeeded;
+    if (failed > 0) {
+      console.warn(`[AXL] broadcastTask: ${failed} send(s) failed out of ${results.length}`);
     }
 
-    console.log("[AXL] broadcastTask sent to", agents.length, "agents for task", toPublish.id);
+    console.log("[AXL] broadcastTask sent to", results.length, "agents (successful:", succeeded, ") for task", toPublish.id);
     return toPublish;
   }
 

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { taskService } from "../services/taskService";
 import { agentRegistryService } from "../services/agentRegistryService";
 import { axlBroadcaster } from "../../integrations/axl/broadcaster";
+import { axlClient } from "../../integrations/axl/axlClient";
 
 const parsePositiveInteger = (value: unknown, fallback: number): number => {
   if (typeof value === "number" && Number.isInteger(value) && value > 0) {
@@ -59,6 +60,17 @@ export const createTaskHandler = async (request: Request, response: Response): P
       return;
     }
 
+    // If BACKEND_PEER_ID isn't set, try to read our local AXL node topology and use our public key
+    let backendPeerId = process.env.BACKEND_PEER_ID;
+    if (!backendPeerId) {
+      try {
+        const topo = await axlClient.getTopology();
+        backendPeerId = topo.our_public_key;
+      } catch {
+        // ignore; we'll proceed without senderPeerId if topology unavailable
+      }
+    }
+
     const task = taskService.createTask({
       id: typeof request.body?.id === "string" ? request.body.id : undefined,
       generation: parsePositiveInteger(request.body?.generation, 0),
@@ -67,7 +79,7 @@ export const createTaskHandler = async (request: Request, response: Response): P
       issuedAt: typeof request.body?.issuedAt === "string" ? request.body.issuedAt : undefined,
       senderPeerId: typeof request.body?.senderPeerId === "string"
         ? request.body.senderPeerId
-        : process.env.BACKEND_PEER_ID || undefined,
+        : backendPeerId || undefined,
       context: buildTaskContext(request.body?.context)
     });
 

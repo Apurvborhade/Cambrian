@@ -106,6 +106,15 @@ export class ZeroGStorageAdapter {
   private readonly genomes = new Map<string, AgentGenome>();
   private readonly memory = new Map<string, AgentMemoryRecord[]>();
 
+  private isNonceError(error: unknown): boolean {
+    if (!error) {
+      return false;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    return /nonce (has already been used|too low|expired)/i.test(message);
+  }
+
   private async uploadToKV(streamId: string, key: string, value: unknown) {
     const activeSigner = getSigner();
     const { nodes, flowContract } = await getFlowContractFromNode(activeSigner);
@@ -116,7 +125,18 @@ export class ZeroGStorageAdapter {
 
     batcher.streamDataBuilder.set(streamId, keyBytes, valueBytes);
 
-    const [tx, batchErr] = await batcher.exec();
+    const buildBatch = async (nonce?: number) => {
+      return nonce === undefined ? batcher.exec() : batcher.exec({ nonce: BigInt(nonce) });
+    };
+
+    let nonce = await activeSigner.getNonce("pending");
+    let [tx, batchErr] = await buildBatch(nonce);
+
+    if (this.isNonceError(batchErr)) {
+      nonce = await activeSigner.getNonce("pending");
+      [tx, batchErr] = await buildBatch(nonce);
+    }
+
     console.log(`Batch execution result: ${tx}`);
     if (batchErr !== null) {
       throw new Error(`Batch execution error: ${batchErr}`);

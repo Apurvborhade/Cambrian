@@ -16,6 +16,8 @@ import { calculateFitness } from "../../core/evolution/fitness";
 import { axlSubscriber } from "../../integrations/axl/subscriber";
 import { axlBroadcaster } from "../../integrations/axl/broadcaster";
 import { axlClient } from "../../integrations/axl/axlClient";
+import fs from "fs";
+import os from "os";
 
 const storage = new ZeroGStorageAdapter();
 
@@ -139,9 +141,37 @@ const createDefaultTask = (): CreateAgentTaskOptions => ({
 });
 
 const registerAgentWithBackend = async (peerId: string, genomeId: string): Promise<void> => {
-  const backendUrl = process.env.BACKEND_URL ?? `http://localhost:${process.env.BACKEND_PORT ?? "3001"}`;
+  const resolveBackendUrl = (): string => {
+    const explicit = process.env.BACKEND_URL?.trim();
+    if (explicit) {
+      return explicit;
+    }
+
+    const backendPort = process.env.BACKEND_PORT ?? "3001";
+
+    if (os.platform() === "linux" && os.release().toLowerCase().includes("microsoft") && fs.existsSync("/etc/resolv.conf")) {
+      try {
+        const resolvConf = fs.readFileSync("/etc/resolv.conf", "utf-8");
+        const nameserverLine = resolvConf
+          .split(/\r?\n/)
+          .find((line) => line.startsWith("nameserver "));
+        const nameserver = nameserverLine?.split(/\s+/)[1]?.trim();
+
+        if (nameserver) {
+          return `http://${nameserver}:${backendPort}`;
+        }
+      } catch {
+        // Fall back to localhost below.
+      }
+    }
+
+    return `http://localhost:${backendPort}`;
+  };
+
+  const backendUrl = resolveBackendUrl();
 
   try {
+    console.log(`[Agent] Registering with backend at ${backendUrl}`);
     const response = await fetch(`${backendUrl}/api/agents/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -205,6 +235,16 @@ export const runAgentLoop = async (
   senderPeerId = task.senderPeerId;
   if (senderPeerId) {
     console.log("[Agent] Using sender peer ID from task:", senderPeerId.substring(0, 16) + "...");
+  }
+
+  // Stagger compute requests to avoid hitting rate limits
+  // Extract agent number from genomeId (e.g., genesis-2 -> 2)
+  const genomeMatch = genomeId.match(/\d+$/);
+  const agentIndex = genomeMatch ? parseInt(genomeMatch[0], 10) : Math.floor(Math.random() * 5);
+  const staggerDelayMs = agentIndex * 20_000; // 20 seconds between agents (10 req/min = 6sec per req)
+  if (staggerDelayMs > 0) {
+    console.log(`[Agent] Staggering compute request by ${staggerDelayMs}ms to avoid rate limit (agent #${agentIndex})`);
+    await new Promise((resolve) => setTimeout(resolve, staggerDelayMs));
   }
 
   const signalAdapter = new UniswapSignalAdapter(new UniswapMarketAdapter());

@@ -16,8 +16,15 @@ export const registerAgentHandler = (request: Request, response: Response): void
       return;
     }
 
+    const existing = agentRegistryService.listAgents().find((agent) => agent.peerId === peerId);
+    if (existing && existing.genomeId && genomeId && existing.genomeId !== genomeId) {
+      console.warn(
+        `[Agent] Duplicate peerId registration detected for ${peerId}. Existing genomeId=${existing.genomeId}, new genomeId=${genomeId}. This means the agents are sharing the same AXL node.`
+      );
+    }
+
     const agent = agentRegistryService.registerAgent(peerId, genomeId || undefined);
-    response.status(201).json(agent);
+    response.status(201).json({ agent, updatedExisting: Boolean(existing) });
   } catch (error) {
     sendError(response, error);
   }
@@ -37,8 +44,15 @@ export const heartbeatAgentHandler = (request: Request, response: Response): voi
       return;
     }
 
+    const existing = agentRegistryService.listAgents().find((agent) => agent.peerId === peerId);
+    if (existing && existing.genomeId && genomeId && existing.genomeId !== genomeId) {
+      console.warn(
+        `[Agent] Duplicate peerId heartbeat detected for ${peerId}. Existing genomeId=${existing.genomeId}, new genomeId=${genomeId}.`
+      );
+    }
+
     const agent = agentRegistryService.registerAgent(peerId, genomeId || undefined);
-    response.json({ ok: true, agent });
+    response.json({ ok: true, agent, updatedExisting: Boolean(existing) });
   } catch (err) {
     sendError(response, err);
   }
