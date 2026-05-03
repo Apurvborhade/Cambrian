@@ -84,16 +84,18 @@ export const generateChildGenomeWithCompute = async (
     typeof candidate.genome_id === "string" && candidate.genome_id.trim().length > 0
       ? candidate.genome_id.trim()
       : keccak256(
-          toUtf8Bytes(
-            JSON.stringify({
-              parentA: request.parentA.genome_id,
-              parentB: request.parentB.genome_id,
-              seed: request.mutationSeed,
-              content
-            })
-          )
-        );
+        toUtf8Bytes(
+          JSON.stringify({
+            parentA: request.parentA.genome_id,
+            parentB: request.parentB.genome_id,
+            seed: request.mutationSeed,
+            content
+          })
+        )
+      );
 
+  console.log("Canditate Compute Child: ", candidate, content)
+  
   const child: AgentGenome = {
     ...request.parentA,
     ...candidate,

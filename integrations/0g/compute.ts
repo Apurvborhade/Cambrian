@@ -145,27 +145,58 @@ export class ZeroGComputeAdapter {
     const prompt = request.user;
     const headers = await broker.inference.getRequestHeaders(providerAddress, prompt);
 
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...headers
-      },
-      body: JSON.stringify({
-        model: request.model || env.zeroGComputeModel || model,
-        temperature: request.temperature ?? 0.7,
-        messages: [
-          {
-            role: "system",
-            content: request.system
-          },
-          {
-            role: "user",
-            content: request.user
-          }
-        ]
-      })
+    const requestBody = JSON.stringify({
+      model: request.model || env.zeroGComputeModel || model,
+      temperature: request.temperature ?? 0.7,
+      messages: [
+        {
+          role: "system",
+          content: request.system
+        },
+        {
+          role: "user",
+          content: request.user
+        }
+      ]
     });
+
+    const sleep = async (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // Providers commonly enforce low concurrency and per-user throttles. Retry 429s briefly with backoff.
+    let response: Response | null = null;
+    const maxAttempts = 4;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      response = await fetch(`${endpoint}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers
+        },
+        body: requestBody
+      });
+
+      if (response.status !== 429) {
+        break;
+      }
+
+      const retryAfterHeader = response.headers.get("Retry-After");
+      const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+      const baseDelayMs = Number.isFinite(retryAfterSeconds) ? retryAfterSeconds * 1000 : 500 * attempt;
+      const delayMs = Math.min(4000, baseDelayMs);
+
+      const errorBody = await response.text().catch(() => "");
+      console.warn(
+        `0G Compute throttled (429) attempt ${attempt}/${maxAttempts}. Waiting ${delayMs}ms. ${errorBody ? `Body: ${errorBody}` : ""}`
+      );
+
+      if (attempt < maxAttempts) {
+        await sleep(delayMs);
+      }
+    }
+
+    if (!response) {
+      throw new Error("0G Compute request failed: no response object was created.");
+    }
 
     if (!response.ok) {
       const errorBody = await response.text();

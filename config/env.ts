@@ -23,6 +23,29 @@ export const env = {
   roundsPerGeneration: parseInt(process.env.ROUNDS_PER_GENERATION ?? "5", 10),
   survivorsPerGeneration: parseInt(process.env.SURVIVORS_PER_GENERATION ?? "2", 10),
   deathsPerGeneration: parseInt(process.env.DEATHS_PER_GENERATION ?? "1", 10),
-  targetPoolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool"
+  arenaBurnsPerGeneration: parseInt(process.env.ARENA_BURNS_PER_GENERATION ?? "2", 10),
+  uniswapApiKey: process.env.UNISWAP_API_KEY ?? "",
+  uniswapChainId: parseInt(process.env.UNISWAP_CHAIN_ID ?? "1", 10),
+  uniswapTokenIn: process.env.UNISWAP_TOKEN_IN ?? "",
+  uniswapTokenOut: process.env.UNISWAP_TOKEN_OUT ?? "",
+  uniswapAmountIn: process.env.UNISWAP_AMOUNT_IN ?? "",
+  uniswapSwapper: process.env.UNISWAP_SWAPPER ?? "",
+  targetPoolAddress: process.env.TARGET_POOL_ADDRESS ?? "demo-pool",
+
+  // Outcome-based (paper) fitness evaluation window.
+  // If both are set, blocks takes precedence when quote block numbers are available.
+  fitnessEvalBlocks: process.env.FITNESS_EVAL_BLOCKS ? parseInt(process.env.FITNESS_EVAL_BLOCKS, 10) : 0,
+  fitnessEvalMinutes: process.env.FITNESS_EVAL_MINUTES ? parseFloat(process.env.FITNESS_EVAL_MINUTES) : 5,
+
+  // Storage fallback (Supabase).
+  supabaseUrl: process.env.SUPABASE_URL ?? "",
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+
+  // If 0G storage calls (KV/indexer/batcher) stall, fall back to Supabase to keep the arena running.
+  storageTimeoutMs: process.env.STORAGE_TIMEOUT_MS ? parseInt(process.env.STORAGE_TIMEOUT_MS, 10) : 8000,
+  storageCooldownMs: process.env.STORAGE_COOLDOWN_MS ? parseInt(process.env.STORAGE_COOLDOWN_MS, 10) : 60000,
+
+  // Agent runtime concurrency. Keep this <= provider concurrent inference limit to avoid 429s.
+  maxAgentConcurrency: process.env.MAX_AGENT_CONCURRENCY ? parseInt(process.env.MAX_AGENT_CONCURRENCY, 10) : 2
   
 };
